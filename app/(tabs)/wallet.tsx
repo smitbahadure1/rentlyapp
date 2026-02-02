@@ -1,15 +1,16 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
 
 // Mock Data
 const TRANSACTIONS = [
-    { id: '1', title: 'Top Up', date: 'Today, 10:30 AM', amount: '+ N50,000', type: 'credit' },
-    { id: '2', title: 'Car Rental - BMW 5 Series', date: 'Yesterday, 04:15 PM', amount: '- N25,000', type: 'debit' },
-    { id: '3', title: 'Car Rental - Toyota Camry', date: 'Oct 24, 09:00 AM', amount: '- N15,000', type: 'debit' },
-    { id: '4', title: 'Refund', date: 'Oct 20, 02:30 PM', amount: '+ N10,000', type: 'credit' },
-    { id: '5', title: 'Top Up', date: 'Oct 15, 11:00 AM', amount: '+ N100,000', type: 'credit' },
+    { id: '1', title: 'Top Up', date: 'Today, 10:30 AM', amount: '+ ₹50,000', type: 'credit' },
+    { id: '2', title: 'BMW 5 Series Rental', date: 'Yesterday, 04:15 PM', amount: '- ₹25,000', type: 'debit' },
+    { id: '3', title: 'Toyota Camry Rental', date: 'Oct 24, 09:00 AM', amount: '- ₹15,000', type: 'debit' },
+    { id: '4', title: 'Refund', date: 'Oct 20, 02:30 PM', amount: '+ ₹10,000', type: 'credit' },
+    { id: '5', title: 'Top Up', date: 'Oct 15, 11:00 AM', amount: '+ ₹100,000', type: 'credit' },
 ];
 
 const CARDS = [
@@ -18,6 +19,9 @@ const CARDS = [
 ];
 
 export default function WalletScreen() {
+    const [showCardsModal, setShowCardsModal] = useState(false);
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
+    const [showRewardsModal, setShowRewardsModal] = useState(false);
     return (
         <View style={styles.container}>
             <StatusBar style="light" />
@@ -35,7 +39,7 @@ export default function WalletScreen() {
                 <View style={styles.balanceCard}>
                     <View>
                         <Text style={styles.balanceLabel}>Total Balance</Text>
-                        <Text style={styles.balanceAmount}>N 145,000<Text style={styles.balanceDecimal}>.00</Text></Text>
+                        <Text style={styles.balanceAmount}>₹ 1,45,000<Text style={styles.balanceDecimal}>.00</Text></Text>
                     </View>
                     <TouchableOpacity style={styles.topUpBtn}>
                         <Ionicons name="add" size={20} color="#000" />
@@ -48,29 +52,23 @@ export default function WalletScreen() {
 
                 {/* Quick Actions */}
                 <View style={styles.actionGrid}>
-                    <TouchableOpacity style={styles.actionItem}>
+                    <TouchableOpacity style={styles.actionItem} onPress={() => setShowCardsModal(true)}>
                         <View style={styles.actionIconBox}>
                             <Ionicons name="card-outline" size={24} color="#FFF" />
                         </View>
                         <Text style={styles.actionText}>Cards</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.actionItem}>
+                    <TouchableOpacity style={styles.actionItem} onPress={() => setShowHistoryModal(true)}>
                         <View style={styles.actionIconBox}>
                             <Ionicons name="document-text-outline" size={24} color="#FFF" />
                         </View>
                         <Text style={styles.actionText}>History</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.actionItem}>
+                    <TouchableOpacity style={styles.actionItem} onPress={() => setShowRewardsModal(true)}>
                         <View style={styles.actionIconBox}>
                             <Ionicons name="gift-outline" size={24} color="#FFF" />
                         </View>
-                        <Text style={styles.actionText}>Vouchers</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.actionItem}>
-                        <View style={styles.actionIconBox}>
-                            <Ionicons name="help-circle-outline" size={24} color="#FFF" />
-                        </View>
-                        <Text style={styles.actionText}>Help</Text>
+                        <Text style={styles.actionText}>Rewards</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -88,7 +86,7 @@ export default function WalletScreen() {
                         {CARDS.map((card) => (
                             <View key={card.id} style={styles.paymentCard}>
                                 <View style={styles.cardHeader}>
-                                    <Ionicons name={card.brand === 'visa' ? 'logo-visa' : 'card'} size={24} color="#FFF" />
+                                    <Ionicons name="card" size={28} color="#FFF" />
                                     <TouchableOpacity>
                                         <Ionicons name="ellipsis-horizontal" size={20} color="#9CA3AF" />
                                     </TouchableOpacity>
@@ -126,6 +124,106 @@ export default function WalletScreen() {
                 </View>
 
             </ScrollView>
+
+            {/* Cards Modal */}
+            <Modal visible={showCardsModal} transparent animationType="slide">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>My Cards</Text>
+                            <TouchableOpacity onPress={() => setShowCardsModal(false)}>
+                                <Ionicons name="close" size={24} color="#FFF" />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.modalContent}>
+                            {CARDS.map((card) => (
+                                <View key={card.id} style={styles.modalCardItem}>
+                                    <Ionicons name="card" size={32} color="#FFF" />
+                                    <View style={{ flex: 1, marginLeft: 16 }}>
+                                        <Text style={styles.modalCardNumber}>•••• •••• •••• {card.last4}</Text>
+                                        <Text style={styles.modalCardExpiry}>Expires 12/26</Text>
+                                    </View>
+                                    <TouchableOpacity>
+                                        <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                            <TouchableOpacity style={styles.addNewCardBtn}>
+                                <Ionicons name="add-circle-outline" size={24} color="#FFF" />
+                                <Text style={styles.addNewCardText}>Add New Card</Text>
+                            </TouchableOpacity>
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* History Modal */}
+            <Modal visible={showHistoryModal} transparent animationType="slide">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Transaction History</Text>
+                            <TouchableOpacity onPress={() => setShowHistoryModal(false)}>
+                                <Ionicons name="close" size={24} color="#FFF" />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.modalContent}>
+                            {TRANSACTIONS.map((item) => (
+                                <View key={item.id} style={styles.modalTransactionItem}>
+                                    <View style={styles.transactionIconBox}>
+                                        <Ionicons
+                                            name={item.type === 'credit' ? "arrow-down" : "arrow-up"}
+                                            size={20}
+                                            color={item.type === 'credit' ? "#10B981" : "#FFF"}
+                                        />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.transactionTitle}>{item.title}</Text>
+                                        <Text style={styles.transactionDate}>{item.date}</Text>
+                                    </View>
+                                    <Text style={[styles.transactionAmount, { color: item.type === 'credit' ? '#10B981' : '#FFF' }]}>
+                                        {item.amount}
+                                    </Text>
+                                </View>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Rewards Modal */}
+            <Modal visible={showRewardsModal} transparent animationType="slide">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Rewards & Offers</Text>
+                            <TouchableOpacity onPress={() => setShowRewardsModal(false)}>
+                                <Ionicons name="close" size={24} color="#FFF" />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.modalContent}>
+                            <View style={styles.rewardCard}>
+                                <Ionicons name="gift" size={40} color="#10B981" />
+                                <Text style={styles.rewardTitle}>10% Off Next Rental</Text>
+                                <Text style={styles.rewardDesc}>Valid for bookings above ₹20,000</Text>
+                                <Text style={styles.rewardCode}>Code: SAVE10</Text>
+                            </View>
+                            <View style={styles.rewardCard}>
+                                <Ionicons name="star" size={40} color="#F59E0B" />
+                                <Text style={styles.rewardTitle}>Free Upgrade</Text>
+                                <Text style={styles.rewardDesc}>Upgrade to premium car for free</Text>
+                                <Text style={styles.rewardCode}>Code: UPGRADE</Text>
+                            </View>
+                            <View style={styles.rewardCard}>
+                                <Ionicons name="ticket" size={40} color="#3B82F6" />
+                                <Text style={styles.rewardTitle}>₹5,000 Cashback</Text>
+                                <Text style={styles.rewardDesc}>On bookings above ₹50,000</Text>
+                                <Text style={styles.rewardCode}>Code: CASH5K</Text>
+                            </View>
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -226,9 +324,10 @@ const styles = StyleSheet.create({
     },
     actionGrid: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingHorizontal: 24,
+        justifyContent: 'space-around',
+        paddingHorizontal: 32,
         marginBottom: 40,
+        gap: 16,
     },
     actionItem: {
         alignItems: 'center',

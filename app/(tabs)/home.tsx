@@ -1,8 +1,12 @@
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Dimensions, Platform, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useState, useEffect } from 'react';
+import { getPopularCars, type CarData } from '@/services/carApi';
+import { useRouter } from 'expo-router';
+import { storeCarData } from '@/services/carDataStore';
 
 const CATEGORIES = [
   { id: '1', name: 'Economy', image: require('@/assets/images/cat_economy.png') },
@@ -35,6 +39,28 @@ const RECOMMENDATIONS = [
 ];
 
 export default function HomeScreen() {
+  const router = useRouter();
+  const [cars, setCars] = useState<CarData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchCars() {
+      try {
+        setLoading(true);
+        const popularCars = await getPopularCars(30); // Increased from 10 to 30
+        setCars(popularCars);
+      } catch (err) {
+        console.error('Error fetching cars:', err);
+        setError('Failed to load cars');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchCars();
+  }, []);
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -118,44 +144,71 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.feedContainer}>
-            {RECOMMENDATIONS.map((car) => (
-              <TouchableOpacity key={car.id} style={styles.feedCard} activeOpacity={0.9}>
-                <View style={styles.feedImageContainer}>
-                  <Image source={car.image} style={styles.feedImage} contentFit="cover" />
-                  <View style={styles.feedBadge}>
-                    <Ionicons name="flash" size={12} color="#FFF" />
-                    <Text style={styles.feedBadgeText}>Popular</Text>
-                  </View>
-                  <TouchableOpacity style={styles.likeButton}>
-                    <Ionicons name="heart-outline" size={20} color="#FFF" />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.feedInfo}>
-                  <View style={styles.feedHeader}>
-                    <Text style={styles.feedTitle}>{car.name}</Text>
-                    <View style={styles.ratingTag}>
-                      <Ionicons name="star" size={12} color="#000" />
-                      <Text style={styles.ratingNum}>{car.rating}</Text>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#EF4444" />
+              <Text style={styles.loadingText}>Loading cars from API...</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={() => {
+                setLoading(true);
+                setError(null);
+                getPopularCars(30).then(setCars).catch(() => setError('Failed to load cars')).finally(() => setLoading(false));
+              }}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.feedContainer}>
+              {cars.map((car) => (
+                <TouchableOpacity
+                  key={car.id}
+                  style={styles.feedCard}
+                  activeOpacity={0.9}
+                  onPress={() => {
+                    storeCarData(car.id, car);
+                    router.push(`/car/${car.id}`);
+                  }}
+                >
+                  <View style={styles.feedImageContainer}>
+                    <Image source={{ uri: car.image }} style={styles.feedImage} contentFit="cover" />
+                    <View style={styles.feedBadge}>
+                      <Ionicons name="flash" size={12} color="#FFF" />
+                      <Text style={styles.feedBadgeText}>Popular</Text>
                     </View>
-                  </View>
-
-                  <Text style={styles.feedSubtitle}>{car.reviews} Reviews • {car.specs}</Text>
-
-                  <View style={styles.feedFooter}>
-                    <View>
-                      <Text style={styles.feedPrice}>{car.price}<Text style={styles.feedPriceUnit}>/day</Text></Text>
-                      <Text style={styles.feedTotal}>Free cancellation</Text>
-                    </View>
-                    <TouchableOpacity style={styles.bookBtn}>
-                      <Text style={styles.bookBtnText}>Book Now</Text>
+                    <TouchableOpacity style={styles.likeButton}>
+                      <Ionicons name="heart-outline" size={20} color="#FFF" />
                     </TouchableOpacity>
                   </View>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
+
+                  <View style={styles.feedInfo}>
+                    <View style={styles.feedHeader}>
+                      <Text style={styles.feedTitle}>{car.brand} {car.model}</Text>
+                      <View style={styles.ratingTag}>
+                        <Ionicons name="star" size={12} color="#000" />
+                        <Text style={styles.ratingNum}>{car.rating?.toFixed(1) || '4.5'}</Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.feedSubtitle}>{car.transmission} • {car.seats} Seats • {car.fuelType}</Text>
+
+                    <View style={styles.feedFooter}>
+                      <View>
+                        <Text style={styles.feedPrice}>₹{car.price}k<Text style={styles.feedPriceUnit}>/day</Text></Text>
+                        <Text style={styles.feedTotal}>Free cancellation</Text>
+                      </View>
+                      <TouchableOpacity style={styles.bookBtn}>
+                        <Text style={styles.bookBtnText}>Book Now</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
 
       </ScrollView>
@@ -472,6 +525,39 @@ const styles = StyleSheet.create({
   },
   bookBtnText: {
     color: '#000',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    color: '#9CA3AF',
+    marginTop: 16,
+    fontSize: 14,
+  },
+  errorContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorText: {
+    color: '#EF4444',
+    marginTop: 16,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 16,
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 20,
+  },
+  retryButtonText: {
+    color: '#FFF',
     fontWeight: '700',
     fontSize: 14,
   },

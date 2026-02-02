@@ -1,9 +1,12 @@
-import { View, Text, StyleSheet, Dimensions, TextInput, TouchableOpacity, ScrollView, FlatList } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, TextInput, TouchableOpacity, ScrollView, FlatList, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getPopularCars, searchCarsByBrand, type CarData } from '@/services/carApi';
+import { useRouter } from 'expo-router';
+import { storeCarData } from '@/services/carDataStore';
 
 const { width } = Dimensions.get('window');
 
@@ -18,7 +21,36 @@ const EXPLORE_CARS = [
 ];
 
 export default function ExploreScreen() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
+  const [cars, setCars] = useState<CarData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchCars() {
+      try {
+        setLoading(true);
+        // Fetch 50 cars for explore page (more variety)
+        const exploreCars = await getPopularCars(50);
+        setCars(exploreCars);
+      } catch (err) {
+        console.error('Error fetching cars:', err);
+        setError('Failed to load cars');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchCars();
+  }, []);
+
+  // Filter cars based on search query
+  const filteredCars = searchQuery
+    ? cars.filter(car =>
+      `${car.brand} ${car.model}`.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    : cars;
 
   return (
     <View style={styles.container}>
@@ -71,43 +103,81 @@ export default function ExploreScreen() {
 
         {/* Results List - Premium Feed */}
         <View style={[styles.section, { paddingBottom: 100 }]}>
-          <Text style={styles.sectionTitle}>Explore Nearby</Text>
-          {EXPLORE_CARS.map((car) => (
-            <TouchableOpacity key={car.id} style={styles.feedCard} activeOpacity={0.9}>
-              <View style={styles.feedImageContainer}>
-                <Image source={car.image} style={styles.feedImage} contentFit="cover" />
-                <View style={styles.feedBadge}>
-                  <Ionicons name="navigate-circle" size={14} color="#FFF" />
-                  <Text style={styles.feedBadgeText}>{car.distance}</Text>
-                </View>
-                <TouchableOpacity style={styles.likeButton}>
-                  <Ionicons name="heart-outline" size={20} color="#FFF" />
-                </TouchableOpacity>
-              </View>
+          <Text style={styles.sectionTitle}>
+            {searchQuery ? `Results for "${searchQuery}"` : 'Explore Nearby'}
+          </Text>
 
-              <View style={styles.feedInfo}>
-                <View style={styles.feedHeader}>
-                  <Text style={styles.feedTitle}>{car.name}</Text>
-                  <View style={styles.ratingTag}>
-                    <Ionicons name="star" size={12} color="#000" />
-                    <Text style={styles.ratingNum}>{car.rating}</Text>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#EF4444" />
+              <Text style={styles.loadingText}>Loading cars...</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={() => {
+                setLoading(true);
+                setError(null);
+                getPopularCars(20).then(setCars).catch(() => setError('Failed to load cars')).finally(() => setLoading(false));
+              }}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : filteredCars.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="car-outline" size={64} color="#4B5563" />
+              <Text style={styles.emptyText}>No cars found</Text>
+              <Text style={styles.emptySubtext}>Try adjusting your search</Text>
+            </View>
+          ) : (
+            filteredCars.map((car) => (
+              <TouchableOpacity
+                key={car.id}
+                style={styles.feedCard}
+                activeOpacity={0.9}
+                onPress={() => {
+                  storeCarData(car.id, car);
+                  router.push(`/car/${car.id}`);
+                }}
+              >
+                <View style={styles.feedImageContainer}>
+                  <Image source={{ uri: car.image }} style={styles.feedImage} contentFit="cover" />
+                  <View style={styles.feedBadge}>
+                    <Ionicons name="navigate-circle" size={14} color="#FFF" />
+                    <Text style={styles.feedBadgeText}>{(Math.random() * 10 + 1).toFixed(1)} km</Text>
                   </View>
-                </View>
-
-                <Text style={styles.feedSubtitle}>{car.trips} • Automatic • 5 Seats</Text>
-
-                <View style={styles.feedFooter}>
-                  <View>
-                    <Text style={styles.feedPrice}>{car.price}<Text style={styles.feedPriceUnit}>/day</Text></Text>
-                    <Text style={styles.feedTotal}>N120,000 est. total</Text>
-                  </View>
-                  <TouchableOpacity style={styles.bookBtn}>
-                    <Text style={styles.bookBtnText}>Book Now</Text>
+                  <TouchableOpacity style={styles.likeButton}>
+                    <Ionicons name="heart-outline" size={20} color="#FFF" />
                   </TouchableOpacity>
                 </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+
+                <View style={styles.feedInfo}>
+                  <View style={styles.feedHeader}>
+                    <Text style={styles.feedTitle}>{car.brand} {car.model}</Text>
+                    <View style={styles.ratingTag}>
+                      <Ionicons name="star" size={12} color="#000" />
+                      <Text style={styles.ratingNum}>{car.rating?.toFixed(1) || '4.5'}</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.feedSubtitle}>
+                    {Math.floor(Math.random() * 200 + 50)} trips • {car.transmission} • {car.seats} Seats
+                  </Text>
+
+                  <View style={styles.feedFooter}>
+                    <View>
+                      <Text style={styles.feedPrice}>₹{car.price}k<Text style={styles.feedPriceUnit}>/day</Text></Text>
+                      <Text style={styles.feedTotal}>₹{(car.price || 0) * 4}k est. total</Text>
+                    </View>
+                    <TouchableOpacity style={styles.bookBtn}>
+                      <Text style={styles.bookBtnText}>Book Now</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
 
       </ScrollView>
@@ -321,6 +391,55 @@ const styles = StyleSheet.create({
   bookBtnText: {
     color: '#000',
     fontWeight: '700',
+    fontSize: 14,
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    color: '#9CA3AF',
+    marginTop: 16,
+    fontSize: 14,
+  },
+  errorContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorText: {
+    color: '#EF4444',
+    marginTop: 16,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 16,
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 20,
+  },
+  retryButtonText: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  emptyContainer: {
+    padding: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    color: '#9CA3AF',
+    marginTop: 16,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  emptySubtext: {
+    color: '#6B7280',
+    marginTop: 8,
     fontSize: 14,
   },
 });

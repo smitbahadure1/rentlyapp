@@ -3,7 +3,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold, Inter_900Black } from '@expo-google-fonts/inter';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -21,14 +21,25 @@ export default function RootLayout() {
     Inter_800ExtraBold,
     Inter_900Black,
   });
+  const [splashReady, setSplashReady] = useState(false);
 
   useEffect(() => {
+    // Hide splash screen after 3 seconds regardless of font loading
+    const timeout = setTimeout(() => {
+      setSplashReady(true);
+      SplashScreen.hideAsync();
+    }, 3000);
+
     if (loaded) {
+      clearTimeout(timeout);
+      setSplashReady(true);
       SplashScreen.hideAsync();
     }
+
+    return () => clearTimeout(timeout);
   }, [loaded]);
 
-  if (!loaded) {
+  if (!loaded && !splashReady) {
     return null;
   }
 
