@@ -17,7 +17,7 @@ export default function CarDetailsScreen() {
 
     // Use stored data or fallback to mock data
     const car = storedCar ? {
-        name: storedCar.model, // Just use the model name (e.g., "Cadillac Sedan")
+        name: storedCar.model,
         brand: storedCar.brand,
         rating: storedCar.rating?.toFixed(1) || '4.5',
         reviews: '(23)',
@@ -30,21 +30,18 @@ export default function CarDetailsScreen() {
             { icon: 'leaf-outline', label: storedCar.fuelType || 'Petrol' },
         ],
         image: storedCar.image,
-    } : {
-        name: 'BMW 5 Series',
-        brand: 'BMW',
-        rating: '5.0',
-        reviews: '(23)',
-        price: '₹250k',
-        description: 'Experience the ultimate driving machine. This BMW 5 Series offers a perfect blend of performance, comfort, and advanced technology. Perfect for business trips or weekend getaways.',
-        features: [
-            { icon: 'speedometer-outline', label: '250 km/h' },
-            { icon: 'hardware-chip-outline', label: 'Auto' },
-            { icon: 'people-outline', label: '5 Seats' },
-            { icon: 'leaf-outline', label: 'Petrol' },
-        ],
-        image: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=800&q=80',
-    };
+    } : null;
+
+    if (!car) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <Text style={{ color: '#FFF', fontSize: 18, fontFamily: 'Inter_700Bold' }}>Car details not found</Text>
+                <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20, padding: 12, backgroundColor: '#1C1C1E', borderRadius: 12 }}>
+                    <Text style={{ color: '#FFF', fontFamily: 'Inter_600SemiBold' }}>Go Back</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -118,7 +115,7 @@ export default function CarDetailsScreen() {
                                 <Ionicons name="location" size={24} color="#FFF" />
                             </View>
                             <View style={styles.locationInfo}>
-                                <Text style={styles.locationName}>Lagos Island, Nigeria</Text>
+                                <Text style={styles.locationName}>Juhu, Mumbai</Text>
                                 <Text style={styles.locationDist}>2.5 km away</Text>
                             </View>
                             <TouchableOpacity style={styles.mapBtn}>
@@ -136,7 +133,7 @@ export default function CarDetailsScreen() {
             <View style={styles.bottomBar}>
                 <View style={styles.priceContainer}>
                     <Text style={styles.priceLabel}>Daily Price</Text>
-                    <Text style={styles.priceValue}>{car.price.replace('N', '₹')}<Text style={styles.priceUnit}>/day</Text></Text>
+                    <Text style={styles.priceValue}>₹{car.price}<Text style={styles.priceUnit}>/day</Text></Text>
                 </View>
                 <TouchableOpacity style={styles.bookButton} onPress={() => router.push(`/checkout/${id}`)}>
                     <Text style={styles.bookButtonText}>Book Now</Text>
@@ -337,6 +334,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderTopWidth: 1,
         borderTopColor: '#1C1C1E',
+    },
+    priceContainer: {
+        flex: 1,
     },
     priceLabel: {
         color: '#9CA3AF',

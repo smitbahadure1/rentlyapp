@@ -2,60 +2,58 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingVi
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSignIn } from '@clerk/clerk-expo';
 import { useState, useCallback } from 'react';
+import { adminSignIn } from '@/services/adminService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export default function SignInScreen() {
-    const { signIn, setActive, isLoaded } = useSignIn();
+export default function AdminSignInScreen() {
     const router = useRouter();
 
-    const [emailAddress, setEmailAddress] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
-    const onSignInPress = useCallback(async () => {
-        if (!isLoaded) return;
+    const onAdminSignInPress = useCallback(async () => {
+        if (!email || !password) {
+            Alert.alert("Error", "Please enter both email and password");
+            return;
+        }
 
         setIsLoading(true);
         try {
-            const signInAttempt = await signIn.create({
-                identifier: emailAddress,
-                password,
-            });
+            const adminUser = await adminSignIn(email, password);
 
-            if (signInAttempt.status === 'complete') {
-                await setActive({ session: signInAttempt.createdSessionId });
-                router.replace('/(tabs)/home');
+            if (adminUser) {
+                // Store admin session
+                await AsyncStorage.setItem('admin_user', JSON.stringify(adminUser));
+                Alert.alert("Success", "Welcome Admin!", [
+                    {
+                        text: "OK",
+                        onPress: () => router.replace('/admin/dashboard' as any)
+                    }
+                ]);
             } else {
-                // See https://clerk.com/docs/custom-flows/error-handling
-                // for more info on error handling
-                console.error(JSON.stringify(signInAttempt, null, 2));
-                Alert.alert("Error", "Check your credentials and try again.");
+                Alert.alert("Authentication Failed", "Invalid admin credentials. Please try again.");
             }
         } catch (err: any) {
-            console.error(JSON.stringify(err, null, 2));
-            Alert.alert("Authentication Failed", err.errors?.[0]?.longMessage || "Something went wrong.");
+            console.error('Admin sign in error:', err);
+            Alert.alert("Error", "Something went wrong. Please try again.");
         } finally {
             setIsLoading(false);
         }
-    }, [isLoaded, emailAddress, password]);
+    }, [email, password]);
 
     return (
         <View style={styles.container}>
             <StatusBar style="light" />
 
-            {/* Premium Header with Image */}
+            {/* Premium Header */}
             <View style={styles.headerSection}>
-                <Image
-                    source={require('@/assets/images/sign_in_header.png')}
-                    style={StyleSheet.absoluteFill}
-                    contentFit="cover"
-                />
                 <LinearGradient
-                    colors={['rgba(0,0,0,0.2)', 'rgba(0,0,0,0.8)', '#000']}
+                    colors={['#1a1a1a', '#000000']}
                     style={StyleSheet.absoluteFill}
                 />
                 <SafeAreaView style={styles.safeArea}>
@@ -63,8 +61,12 @@ export default function SignInScreen() {
                         <Ionicons name="arrow-back" size={24} color="#FFF" />
                     </TouchableOpacity>
                     <View style={styles.headerTextContainer}>
-                        <Text style={styles.headerSubtitle}>WELCOME BACK</Text>
-                        <Text style={styles.headerTitle}>Sign In</Text>
+                        <View style={styles.adminBadge}>
+                            <Ionicons name="shield-checkmark" size={20} color="#FFF" />
+                            <Text style={styles.adminBadgeText}>ADMIN ACCESS</Text>
+                        </View>
+                        <Text style={styles.headerTitle}>Admin Portal</Text>
+                        <Text style={styles.headerSubtitle}>Secure Management Dashboard</Text>
                     </View>
                 </SafeAreaView>
             </View>
@@ -77,47 +79,54 @@ export default function SignInScreen() {
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     <View style={styles.inputContainer}>
                         <View style={styles.inputGroup}>
-                            <Text style={styles.label}>EMAIL ADDRESS</Text>
+                            <Text style={styles.label}>ADMIN EMAIL</Text>
                             <View style={styles.inputWrapper}>
-                                <Ionicons name="mail-outline" size={20} color="#6B7280" />
+                                <Ionicons name="mail-outline" size={20} color="#9CA3AF" />
                                 <TextInput
                                     style={styles.input}
-                                    placeholder="e.g. alex@rently.pro"
-                                    placeholderTextColor="#4B5563"
+                                    placeholder="admin@rently.com"
+                                    placeholderTextColor="#6B7280"
                                     keyboardType="email-address"
                                     autoCapitalize="none"
-                                    value={emailAddress}
-                                    onChangeText={(emailAddress) => setEmailAddress(emailAddress)}
+                                    value={email}
+                                    onChangeText={setEmail}
                                 />
                             </View>
                         </View>
 
                         <View style={styles.inputGroup}>
-                            <Text style={styles.label}>PASSWORD</Text>
+                            <Text style={styles.label}>ADMIN PASSWORD</Text>
                             <View style={styles.inputWrapper}>
-                                <Ionicons name="lock-closed-outline" size={20} color="#6B7280" />
+                                <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
                                 <TextInput
                                     style={styles.input}
                                     placeholder="••••••••"
-                                    placeholderTextColor="#4B5563"
-                                    secureTextEntry
+                                    placeholderTextColor="#6B7280"
+                                    secureTextEntry={!showPassword}
                                     value={password}
-                                    onChangeText={(password) => setPassword(password)}
+                                    onChangeText={setPassword}
                                 />
-                                <TouchableOpacity>
-                                    <Ionicons name="eye-outline" size={20} color="#6B7280" />
+                                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                                    <Ionicons
+                                        name={showPassword ? "eye-outline" : "eye-off-outline"}
+                                        size={20}
+                                        color="#6B7280"
+                                    />
                                 </TouchableOpacity>
                             </View>
                         </View>
 
-                        <TouchableOpacity style={styles.forgotBtn}>
-                            <Text style={styles.forgotText}>Forgot Password?</Text>
-                        </TouchableOpacity>
+                        <View style={styles.securityNote}>
+                            <Ionicons name="information-circle-outline" size={16} color="#6B7280" />
+                            <Text style={styles.securityText}>
+                                This is a secure admin portal. Unauthorized access is prohibited.
+                            </Text>
+                        </View>
                     </View>
 
                     <TouchableOpacity
                         style={[styles.signInButton, isLoading && { opacity: 0.7 }]}
-                        onPress={onSignInPress}
+                        onPress={onAdminSignInPress}
                         disabled={isLoading}
                         activeOpacity={0.8}
                     >
@@ -125,27 +134,17 @@ export default function SignInScreen() {
                             <ActivityIndicator color="#000" />
                         ) : (
                             <>
-                                <Text style={styles.signInText}>ENTER THE FLEET</Text>
+                                <Ionicons name="shield-checkmark" size={20} color="#000" />
+                                <Text style={styles.signInText}>ACCESS ADMIN PANEL</Text>
                                 <Ionicons name="chevron-forward" size={18} color="#000" />
                             </>
                         )}
                     </TouchableOpacity>
 
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>Don't have an account? </Text>
-                        <TouchableOpacity onPress={() => router.push('/sign-up' as any)}>
-                            <Text style={styles.signUpText}>Sign Up</Text>
-                        </TouchableOpacity>
+                        <Ionicons name="lock-closed" size={14} color="#6B7280" />
+                        <Text style={styles.footerText}>Secured with enterprise-grade encryption</Text>
                     </View>
-
-                    {/* Admin Access Button */}
-                    <TouchableOpacity 
-                        style={styles.adminButton} 
-                        onPress={() => router.push('/admin-sign-in' as any)}
-                    >
-                        <Ionicons name="shield-checkmark" size={16} color="#000" />
-                        <Text style={styles.adminButtonText}>Admin Access</Text>
-                    </TouchableOpacity>
                 </ScrollView>
             </KeyboardAvoidingView>
         </View>
@@ -158,7 +157,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#000',
     },
     headerSection: {
-        height: '40%',
+        height: '35%',
         width: '100%',
     },
     safeArea: {
@@ -169,29 +168,49 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: '#1C1C1E',
         justifyContent: 'center',
         alignItems: 'center',
         marginTop: 10,
+        borderWidth: 1,
+        borderColor: '#333',
     },
     headerTextContainer: {
         position: 'absolute',
         bottom: 30,
         left: 30,
+        right: 30,
     },
-    headerSubtitle: {
+    adminBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 16,
+        backgroundColor: '#1C1C1E',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        alignSelf: 'flex-start',
+        borderWidth: 1,
+        borderColor: '#333',
+    },
+    adminBadgeText: {
         color: '#FFF',
-        fontSize: 12,
-        fontFamily: 'Inter_700Bold',
-        letterSpacing: 3,
-        opacity: 0.6,
-        marginBottom: 8,
+        fontSize: 11,
+        fontFamily: 'Inter_800ExtraBold',
+        letterSpacing: 1.5,
     },
     headerTitle: {
         color: '#FFF',
-        fontSize: 42,
+        fontSize: 38,
         fontFamily: 'Inter_900Black',
         letterSpacing: -1,
+        marginBottom: 8,
+    },
+    headerSubtitle: {
+        color: '#9CA3AF',
+        fontSize: 14,
+        fontFamily: 'Inter_500Medium',
     },
     formSection: {
         flex: 1,
@@ -226,7 +245,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         height: 60,
         borderWidth: 1,
-        borderColor: '#27272A',
+        borderColor: '#333',
         gap: 12,
     },
     input: {
@@ -235,18 +254,27 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontFamily: 'Inter_500Medium',
     },
-    forgotBtn: {
-        alignSelf: 'flex-end',
+    securityNote: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: '#1C1C1E',
+        padding: 12,
+        borderRadius: 8,
+        marginTop: 8,
+        borderWidth: 1,
+        borderColor: '#333',
     },
-    forgotText: {
-        color: '#9CA3AF',
-        fontSize: 13,
-        fontFamily: 'Inter_600SemiBold',
+    securityText: {
+        flex: 1,
+        color: '#6B7280',
+        fontSize: 12,
+        fontFamily: 'Inter_500Medium',
     },
     signInButton: {
         backgroundColor: '#FFF',
         height: 64,
-        borderRadius: 4,
+        borderRadius: 16,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -263,30 +291,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
+        gap: 6,
     },
     footerText: {
         color: '#6B7280',
-        fontSize: 14,
+        fontSize: 12,
         fontFamily: 'Inter_500Medium',
-    },
-    signUpText: {
-        color: '#FFF',
-        fontSize: 14,
-        fontFamily: 'Inter_700Bold',
-    },
-    adminButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        backgroundColor: '#F59E0B',
-        paddingVertical: 12,
-        borderRadius: 8,
-        marginTop: 20,
-    },
-    adminButtonText: {
-        color: '#000',
-        fontSize: 13,
-        fontFamily: 'Inter_600SemiBold',
     },
 });

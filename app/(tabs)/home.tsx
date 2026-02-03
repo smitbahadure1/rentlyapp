@@ -8,48 +8,42 @@ import { getPopularCars, type CarData } from '@/services/carApi';
 import { useRouter } from 'expo-router';
 import { storeCarData } from '@/services/carDataStore';
 
-const CATEGORIES = [
-  { id: '1', name: 'Economy', image: require('@/assets/images/cat_economy.png') },
-  { id: '2', name: 'SUV', image: require('@/assets/images/cat_suv.png') },
-  { id: '3', name: 'Van', image: require('@/assets/images/cat_van.png') },
-  { id: '4', name: 'Luxury', image: require('@/assets/images/cat_luxury.png') },
+
+
+const EXPERIENCES = [
+  { id: 'e1', title: 'The Coastal Run', location: 'Mumbai to Goa', fleet: 'Porsche 911', image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&q=80' },
+  { id: 'e2', title: 'Mountain Elite', location: 'Lonavala Valley', fleet: 'Range Rover', image: 'https://images.unsplash.com/photo-1524146127334-df98a9fd517e?w=800&q=80' },
+  { id: 'e3', title: 'Heritage Drive', location: 'Jaipur Circuit', fleet: 'Vintage Rolls', image: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&q=80' },
 ];
 
-const RECOMMENDATIONS = [
-  {
-    id: '1',
-    name: 'BMW 5 Series',
-    image: require('@/assets/images/rec_bmw_5.png'),
-    specs: 'Auto • 5 Seats',
-    rating: '5.0',
-    reviews: '(23)',
-    price: 'N250k',
-    unit: '/day'
-  },
-  {
-    id: '2',
-    name: 'BMW X4 M',
-    image: require('@/assets/images/rec_bmw_x4.png'),
-    specs: 'Auto • 5 Seats',
-    rating: '5.0',
-    reviews: '(12)',
-    price: 'N250k',
-    unit: '/day'
-  },
-];
+import { fetchCars } from '@/services/supabaseService';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [cars, setCars] = useState<CarData[]>([]);
+  const [cars, setCars] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchCars() {
+    async function loadData() {
       try {
         setLoading(true);
-        const popularCars = await getPopularCars(30); // Increased from 10 to 30
-        setCars(popularCars);
+        // Fetch from both sources to create a massive feed
+        const [supabaseCars, apiCars] = await Promise.all([
+          fetchCars().catch(err => {
+            console.warn('Supabase cars fetch failed, using API only:', err);
+            return [];
+          }),
+          getPopularCars(80)
+        ]);
+
+        console.log(`📊 Loaded ${supabaseCars?.length || 0} cars from Supabase`);
+        console.log(`📊 Loaded ${apiCars?.length || 0} cars from API`);
+
+        // Prioritize Supabase cars but append API cars for high density
+        const combinedCars = [...(supabaseCars || []), ...(apiCars || [])];
+        console.log(`✅ Total cars to display: ${combinedCars.length}`);
+        setCars(combinedCars);
       } catch (err) {
         console.error('Error fetching cars:', err);
         setError('Failed to load cars');
@@ -58,7 +52,7 @@ export default function HomeScreen() {
       }
     }
 
-    fetchCars();
+    loadData();
   }, []);
 
   return (
@@ -72,12 +66,11 @@ export default function HomeScreen() {
             <Text style={styles.locationLabel}>Your location</Text>
             <View style={styles.locationRow}>
               <Ionicons name="location" size={16} color="#EF4444" />
-              <Text style={styles.locationText}>Lagos, Nigeria</Text>
+              <Text style={styles.locationText}>Mumbai, India</Text>
               <Ionicons name="chevron-down" size={12} color="#9CA3AF" style={{ marginLeft: 2 }} />
             </View>
           </View>
-          <TouchableOpacity style={styles.profileButton}>
-            {/* Placeholder for user avatar or icon */}
+          <TouchableOpacity style={styles.profileButton} onPress={() => router.push('/(tabs)/account')}>
             <View style={styles.avatarPlaceholder}>
               <Ionicons name="person" size={16} color="#000" />
             </View>
@@ -91,48 +84,85 @@ export default function HomeScreen() {
         <View style={styles.heroSection}>
           <Text style={styles.heroTitle}>Find the perfect car{'\n'}for your trip.</Text>
 
-          <View style={styles.searchContainer}>
-            <View style={styles.searchInputRow}>
-              <Ionicons name="search" size={20} color="#9CA3AF" />
-              <TextInput
-                placeholder="Search e.g. Toyota, BMW..."
-                style={styles.searchInput}
-                placeholderTextColor="#6B7280"
-              />
-            </View>
-            <TouchableOpacity style={styles.filterButton}>
-              <Ionicons name="options-outline" size={20} color="#000" />
-            </TouchableOpacity>
+          <View style={styles.searchInputRow}>
+            <Ionicons name="search" size={20} color="#9CA3AF" />
+            <TextInput
+              placeholder="Search e.g. Toyota, BMW..."
+              style={styles.searchInput}
+              placeholderTextColor="#6B7280"
+            />
           </View>
         </View>
 
-        {/* Categories - Chip Style */}
+        {/* Membership / Rewards Banner (Premium) */}
+        <View style={styles.bannerContainer}>
+          <TouchableOpacity
+            style={styles.membershipBanner}
+            onPress={() => router.push('/(tabs)/account' as any)}
+            activeOpacity={0.9}
+          >
+            <View>
+              <Text style={styles.membershipLabel}>MEMBERSHIP STATUS</Text>
+              <View style={styles.tierRow}>
+                <Ionicons name="diamond" size={20} color="#FFF" />
+                <Text style={styles.membershipTier}>BLACK TIER</Text>
+              </View>
+            </View>
+            <View style={styles.pointsBadge}>
+              <Text style={styles.pointsValue}>2,450</Text>
+              <Text style={styles.pointsLabel}>PTS</Text>
+            </View>
+            {/* Holographic Pattern Placeholder */}
+            <View style={styles.holographicOverlay} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Elite Experiences (Curated Trips) */}
         <View style={styles.section}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesScroll}>
-            <TouchableOpacity style={[styles.categoryChip, styles.activeCategoryChip]}>
-              <Text style={[styles.categoryText, styles.activeCategoryText]}>All</Text>
-            </TouchableOpacity>
-            {CATEGORIES.map((cat) => (
-              <TouchableOpacity key={cat.id} style={styles.categoryChip}>
-                <Text style={styles.categoryText}>{cat.name}</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Elite Experiences</Text>
+            <View style={styles.badgeTier}>
+              <Ionicons name="diamond" size={10} color="#000" />
+              <Text style={styles.badgeTierText}>BLACK TIER</Text>
+            </View>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.expScroll}>
+            {EXPERIENCES.map((exp) => (
+              <TouchableOpacity
+                key={exp.id}
+                activeOpacity={0.9}
+                style={styles.expCard}
+                onPress={() => {
+                  // Try to find a matching car in our already loaded list
+                  const matchingCar = cars.find(c =>
+                    c.brand.toLowerCase().includes(exp.fleet.split(' ')[0].toLowerCase()) ||
+                    c.model.toLowerCase().includes(exp.fleet.split(' ')[0].toLowerCase())
+                  );
+
+                  if (matchingCar) {
+                    storeCarData(matchingCar.id, matchingCar);
+                    router.push(`/car/${matchingCar.id}` as any);
+                  } else {
+                    // Fallback to explore search if not in popular list
+                    router.push({
+                      pathname: '/(tabs)/explore',
+                      params: { q: exp.fleet.split(' ')[0] }
+                    } as any);
+                  }
+                }}
+              >
+                <Image source={{ uri: exp.image }} style={styles.expImage} contentFit="cover" />
+                <View style={styles.expOverlay}>
+                  <Text style={styles.expLocation}>{exp.location}</Text>
+                  <Text style={styles.expTitle}>{exp.title}</Text>
+                  <View style={styles.expFleetRow}>
+                    <Ionicons name="car-sport" size={12} color="#FFF" />
+                    <Text style={styles.expFleet}>{exp.fleet} Included</Text>
+                  </View>
+                </View>
               </TouchableOpacity>
             ))}
           </ScrollView>
-        </View>
-
-        {/* Offer / Wallet Banner (Sleek) */}
-        <View style={styles.bannerContainer}>
-          <View style={styles.walletBanner}>
-            <View>
-              <Text style={styles.walletLabel}>Wallet Balance</Text>
-              <Text style={styles.walletBalance}>N 145,000.00</Text>
-            </View>
-            <TouchableOpacity style={styles.topUpButtonSmall}>
-              <Text style={styles.topUpTextSmall}>+ Top Up</Text>
-            </TouchableOpacity>
-            {/* Decorative Circle */}
-            <View style={styles.decorativeCircle} />
-          </View>
         </View>
 
         {/* Popular Cars Feed (Redesigned) */}
@@ -156,7 +186,7 @@ export default function HomeScreen() {
               <TouchableOpacity style={styles.retryButton} onPress={() => {
                 setLoading(true);
                 setError(null);
-                getPopularCars(30).then(setCars).catch(() => setError('Failed to load cars')).finally(() => setLoading(false));
+                fetchCars().then(setCars).catch(() => setError('Failed to load cars')).finally(() => setLoading(false));
               }}>
                 <Text style={styles.retryButtonText}>Retry</Text>
               </TouchableOpacity>
@@ -170,7 +200,7 @@ export default function HomeScreen() {
                   activeOpacity={0.9}
                   onPress={() => {
                     storeCarData(car.id, car);
-                    router.push(`/car/${car.id}`);
+                    router.push(`/car/${car.id}` as any);
                   }}
                 >
                   <View style={styles.feedImageContainer}>
@@ -193,14 +223,20 @@ export default function HomeScreen() {
                       </View>
                     </View>
 
-                    <Text style={styles.feedSubtitle}>{car.transmission} • {car.seats} Seats • {car.fuelType}</Text>
+                    <Text style={styles.feedSubtitle}>{car.transmission} • {car.seats} Seats • {car.fuelType || car.fuel_type}</Text>
 
                     <View style={styles.feedFooter}>
                       <View>
-                        <Text style={styles.feedPrice}>₹{car.price}k<Text style={styles.feedPriceUnit}>/day</Text></Text>
+                        <Text style={styles.feedPrice}>₹ {car.price}k<Text style={styles.feedPriceUnit}>/day</Text></Text>
                         <Text style={styles.feedTotal}>Free cancellation</Text>
                       </View>
-                      <TouchableOpacity style={styles.bookBtn}>
+                      <TouchableOpacity
+                        style={styles.bookBtn}
+                        onPress={() => {
+                          storeCarData(car.id, car);
+                          router.push(`/car/${car.id}` as any);
+                        }}
+                      >
                         <Text style={styles.bookBtnText}>Book Now</Text>
                       </TouchableOpacity>
                     </View>
@@ -211,8 +247,8 @@ export default function HomeScreen() {
           )}
         </View>
 
-      </ScrollView>
-    </View>
+      </ScrollView >
+    </View >
   );
 }
 
@@ -345,8 +381,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 28,
   },
-  walletBanner: {
-    backgroundColor: '#1C1C1E',
+  membershipBanner: {
+    backgroundColor: '#1E1E1E',
     borderRadius: 24,
     padding: 24,
     flexDirection: 'row',
@@ -355,41 +391,54 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     borderWidth: 1,
-    borderColor: '#27272A',
+    borderColor: '#333',
   },
-  walletLabel: {
+  membershipLabel: {
     color: '#9CA3AF',
-    fontSize: 12,
-    fontFamily: 'Inter_500Medium',
-    marginBottom: 4,
+    fontSize: 10,
+    fontFamily: 'Inter_800ExtraBold',
+    letterSpacing: 1,
+    marginBottom: 8,
   },
-  walletBalance: {
+  tierRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  membershipTier: {
     color: '#FFFFFF',
-    fontSize: 22,
-    fontFamily: 'Inter_700Bold',
+    fontSize: 24,
+    fontFamily: 'Inter_900Black',
+    letterSpacing: -0.5,
   },
-  topUpButtonSmall: {
-    backgroundColor: '#333',
+  pointsBadge: {
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 10,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
     zIndex: 10,
-    borderWidth: 1,
-    borderColor: '#444',
   },
-  topUpTextSmall: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontFamily: 'Inter_600SemiBold',
+  pointsValue: {
+    color: '#000',
+    fontSize: 18,
+    fontFamily: 'Inter_800ExtraBold',
   },
-  decorativeCircle: {
+  pointsLabel: {
+    color: '#000',
+    fontSize: 8,
+    fontFamily: 'Inter_900Black',
+    marginTop: -2,
+  },
+  holographicOverlay: {
     position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    right: -20,
-    top: -30,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    right: -40,
+    top: -50,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -407,6 +456,69 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
     color: '#6B7280',
+  },
+  badgeTier: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  badgeTierText: {
+    color: '#000',
+    fontSize: 8,
+    fontFamily: 'Inter_900Black',
+    letterSpacing: 0.5,
+  },
+  expScroll: {
+    paddingHorizontal: 20,
+    gap: 16,
+  },
+  expCard: {
+    width: 280,
+    height: 180,
+    borderRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: '#1C1C1E',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  expImage: {
+    width: '100%',
+    height: '100%',
+  },
+  expOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    padding: 16,
+    justifyContent: 'flex-end',
+  },
+  expLocation: {
+    color: '#FFF',
+    fontSize: 10,
+    fontFamily: 'Inter_600SemiBold',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    opacity: 0.8,
+  },
+  expTitle: {
+    color: '#FFF',
+    fontSize: 20,
+    fontFamily: 'Inter_800ExtraBold',
+    marginBottom: 4,
+  },
+  expFleetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    opacity: 0.9,
+  },
+  expFleet: {
+    color: '#FFF',
+    fontSize: 11,
+    fontFamily: 'Inter_500Medium',
   },
   feedContainer: {
     paddingHorizontal: 20,

@@ -1,73 +1,142 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient'; // We might need to handle this if not available, but usually distinct styling works. For now, flat gradients or images.
+import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import { useUser, useAuth } from '@clerk/clerk-expo';
+import { useState, useEffect } from 'react';
+import { fetchUserBookings } from '@/services/supabaseService';
 
 const { width } = Dimensions.get('window');
 
 // Mock Data
 const MENU_ITEMS = [
-    { icon: 'person-outline', label: 'Personal Information' },
-    { icon: 'shield-checkmark-outline', label: 'Login & Security' },
-    { icon: 'card-outline', label: 'Payments & Payouts' },
-    { icon: 'settings-outline', label: 'Settings' },
+    { id: 'personal', icon: 'person-outline', label: 'Personal Information' },
+    { id: 'security', icon: 'shield-checkmark-outline', label: 'Login & Security' },
+    { id: 'payments', icon: 'card-outline', label: 'Payments & Payouts' },
+    { id: 'settings', icon: 'settings-outline', label: 'Settings' },
 ];
 
 export default function AccountScreen() {
+    const router = useRouter();
+    const { user, isLoaded } = useUser();
+    const { signOut } = useAuth();
+    const [tripCount, setTripCount] = useState(0);
+
+    useEffect(() => {
+        async function loadTripCount() {
+            if (!user) return;
+            try {
+                const bookings = await fetchUserBookings(user.id);
+                setTripCount(bookings?.length || 0);
+            } catch (error) {
+                console.error('Error loading trip count:', error);
+            }
+        }
+        loadTripCount();
+    }, [user]);
+
+    const handleLogout = async () => {
+        await signOut();
+        router.replace('/');
+    };
+
+    if (!isLoaded) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color="#FFF" />
+            </View>
+        );
+    }
+
+    // Properly format the display name (Capitalize and split)
+    const rawName = user?.fullName || user?.emailAddresses[0]?.emailAddress.split('@')[0] || 'Member';
+    const displayName = rawName.split(/[-_.]/).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+
     return (
         <View style={styles.container}>
             <StatusBar style="light" />
 
             <SafeAreaView style={styles.container} edges={['top']}>
                 <View style={styles.header}>
-                    <Text style={styles.headerTitle}>Profile</Text>
-                    <TouchableOpacity style={styles.iconBtn}>
+                    <Text style={styles.headerTitle}>Account</Text>
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/settings/notifications' as any)}>
                         <Ionicons name="notifications-outline" size={24} color="#FFF" />
                     </TouchableOpacity>
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
-                    {/* Premium Membership Card */}
-                    <View style={styles.membershipCard}>
-                        <View style={styles.cardPattern} />
-                        <View style={styles.cardContent}>
-                            <View style={styles.cardHeader}>
-                                <View style={styles.avatarBorder}>
-                                    <View style={styles.avatar}>
-                                        <Ionicons name="person" size={32} color="#000" />
+                    {/* Elite VIP Digital Pass */}
+                    <TouchableOpacity
+                        activeOpacity={0.9}
+                        style={styles.membershipCardWrapper}
+                        onPress={() => router.push('/settings/membership' as any)}
+                    >
+                        <LinearGradient
+                            colors={['#1a1a1a', '#000000', '#1a1a1a']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.membershipCard}
+                        >
+                            {/* Holographic Patterns */}
+                            <View style={styles.cardPattern} />
+                            <View style={[styles.cardPattern, { bottom: -50, right: -50, opacity: 0.1, backgroundColor: '#FFF' }]} />
+
+                            <View style={styles.cardContent}>
+                                <View style={styles.cardHeader}>
+                                    <View style={styles.avatarContainer}>
+                                        <View style={styles.avatarGlow} />
+                                        <View style={styles.avatarBorder}>
+                                            <View style={styles.avatar}>
+                                                {user?.imageUrl ? (
+                                                    <Image
+                                                        source={{ uri: user.imageUrl }}
+                                                        style={styles.avatarImage}
+                                                        contentFit="cover"
+                                                    />
+                                                ) : (
+                                                    <Ionicons name="person" size={32} color="#000" />
+                                                )}
+                                            </View>
+                                        </View>
+                                    </View>
+                                    <View style={styles.memberBadge}>
+                                        <Ionicons name="diamond" size={14} color="#000" />
+                                        <Text style={styles.memberBadgeText}>BLACK TIER</Text>
                                     </View>
                                 </View>
-                                <View style={styles.memberBadge}>
-                                    <Ionicons name="diamond" size={12} color="#000" />
-                                    <Text style={styles.memberBadgeText}>BLACK TIER</Text>
+
+                                <View style={styles.userDetails}>
+                                    <Text style={[styles.userName, displayName.length > 15 && { fontSize: 22 }]}>
+                                        {displayName}
+                                    </Text>
+                                    <View style={styles.memberSinceRow}>
+                                        <View style={styles.statusDot} />
+                                        <Text style={styles.userSince}>Member since {user?.createdAt ? new Date(user.createdAt).getFullYear() : '2024'}</Text>
+                                    </View>
+                                </View>
+
+                                <View style={styles.pointsRow}>
+                                    <View>
+                                        <Text style={styles.pointsLabel}>RENTLY POINTS</Text>
+                                        <Text style={styles.pointsValue}>12,450</Text>
+                                    </View>
+                                    <View style={styles.benefitTag}>
+                                        <Text style={styles.benefitTagText}>View Benefits</Text>
+                                        <Ionicons name="chevron-forward" size={12} color="#000" />
+                                    </View>
                                 </View>
                             </View>
-
-                            <View style={styles.userDetails}>
-                                <Text style={styles.userName}>Alex Johnson</Text>
-                                <Text style={styles.userSince}>Member since 2024</Text>
-                            </View>
-
-                            <View style={styles.pointsRow}>
-                                <View>
-                                    <Text style={styles.pointsLabel}>Rently Points</Text>
-                                    <Text style={styles.pointsValue}>12,450</Text>
-                                </View>
-                                <TouchableOpacity style={styles.tierBtn}>
-                                    <Text style={styles.tierBtnText}>View Benefits</Text>
-                                    <Ionicons name="arrow-forward" size={12} color="#FFF" />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </View>
+                        </LinearGradient>
+                    </TouchableOpacity>
 
                     {/* Dashboard Grid */}
                     <View style={styles.statsGrid}>
-                        <TouchableOpacity style={styles.statBox}>
-                            <Text style={styles.statNumber}>12</Text>
+                        <TouchableOpacity style={styles.statBox} onPress={() => router.push('/(tabs)/bookings')}>
+                            <Text style={styles.statNumber}>{tripCount}</Text>
                             <Text style={styles.statLabel}>Trips</Text>
                         </TouchableOpacity>
                         <View style={styles.verticalDivider} />
@@ -82,41 +151,17 @@ export default function AccountScreen() {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Quick Actions Grid */}
-                    <Text style={styles.sectionTitle}>Dashboard</Text>
-                    <View style={styles.dashboardGrid}>
-                        <TouchableOpacity style={styles.dashboardItem}>
-                            <View style={styles.dashIconBox}>
-                                <Ionicons name="heart" size={24} color="#FFF" />
-                            </View>
-                            <Text style={styles.dashLabel}>Favorites</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.dashboardItem}>
-                            <View style={styles.dashIconBox}>
-                                <Ionicons name="wallet" size={24} color="#FFF" />
-                            </View>
-                            <Text style={styles.dashLabel}>Wallet</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.dashboardItem}>
-                            <View style={styles.dashIconBox}>
-                                <Ionicons name="document-text" size={24} color="#FFF" />
-                            </View>
-                            <Text style={styles.dashLabel}>Docs</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.dashboardItem}>
-                            <View style={styles.dashIconBox}>
-                                <Ionicons name="chatbubble" size={24} color="#FFF" />
-                            </View>
-                            <Text style={styles.dashLabel}>Support</Text>
-                        </TouchableOpacity>
-                    </View>
 
                     {/* Menu List */}
                     <View style={styles.menuSection}>
                         {MENU_ITEMS.map((item, index) => (
-                            <TouchableOpacity key={index} style={styles.menuRow}>
+                            <TouchableOpacity
+                                key={index}
+                                style={styles.menuRow}
+                                onPress={() => router.push(`/settings/${item.id}` as any)}
+                            >
                                 <View style={styles.menuLeft}>
-                                    <Ionicons name={item.icon} size={22} color="#D1D5DB" />
+                                    <Ionicons name={item.icon as any} size={22} color="#D1D5DB" />
                                     <Text style={styles.menuText}>{item.label}</Text>
                                 </View>
                                 <Ionicons name="chevron-forward" size={16} color="#4B5563" />
@@ -124,7 +169,10 @@ export default function AccountScreen() {
                         ))}
                     </View>
 
-                    <TouchableOpacity style={styles.logoutButton}>
+                    <TouchableOpacity
+                        style={styles.logoutButton}
+                        onPress={handleLogout}
+                    >
                         <Text style={styles.logoutText}>Log Out</Text>
                     </TouchableOpacity>
 
@@ -167,16 +215,17 @@ const styles = StyleSheet.create({
     scrollContent: {
         paddingBottom: 100,
     },
-    membershipCard: {
+    membershipCardWrapper: {
         marginHorizontal: 20,
+        marginBottom: 32,
+    },
+    membershipCard: {
         height: 220,
-        backgroundColor: '#1C1C1E',
         borderRadius: 30,
         overflow: 'hidden',
         position: 'relative',
         borderWidth: 1,
         borderColor: '#333',
-        marginBottom: 32,
     },
     cardPattern: {
         position: 'absolute',
@@ -196,7 +245,23 @@ const styles = StyleSheet.create({
     cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
+        alignItems: 'center',
+        zIndex: 2,
+    },
+    avatarContainer: {
+        width: 72,
+        height: 72,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    avatarGlow: {
+        position: 'absolute',
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.2)',
     },
     avatarBorder: {
         width: 64,
@@ -207,74 +272,99 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         padding: 2,
+        backgroundColor: '#000',
     },
     avatar: {
         width: '100%',
         height: '100%',
         borderRadius: 30,
-        backgroundColor: '#FFF',
+        backgroundColor: '#1C1C1E',
         justifyContent: 'center',
         alignItems: 'center',
+        overflow: 'hidden',
+    },
+    avatarImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 30,
     },
     memberBadge: {
         backgroundColor: '#FFF',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
         borderRadius: 20,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
+        gap: 8,
+        shadowColor: '#FFF',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
     },
     memberBadgeText: {
         color: '#000',
-        fontSize: 10,
-        fontWeight: '900',
-        letterSpacing: 1,
+        fontSize: 11,
+        fontFamily: 'Inter_900Black',
+        letterSpacing: 1.5,
     },
     userDetails: {
-        marginVertical: 10,
+        marginVertical: 15,
+        zIndex: 2,
     },
     userName: {
-        fontSize: 26,
-        fontFamily: 'Inter_800ExtraBold',
+        fontSize: 32,
+        fontFamily: 'Inter_900Black',
         color: '#FFF',
-        letterSpacing: -0.5,
+        letterSpacing: -1,
+    },
+    memberSinceRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: 4,
+    },
+    statusDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#4ade80',
     },
     userSince: {
         fontSize: 14,
         color: '#9CA3AF',
-        marginTop: 4,
+        fontFamily: 'Inter_500Medium',
     },
     pointsRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-end',
+        zIndex: 2,
     },
     pointsLabel: {
-        fontSize: 12,
+        fontSize: 11,
         color: '#9CA3AF',
-        fontFamily: 'Inter_600SemiBold',
-        textTransform: 'uppercase',
+        fontFamily: 'Inter_800ExtraBold',
+        letterSpacing: 1.5,
     },
     pointsValue: {
-        fontSize: 24,
-        fontFamily: 'Inter_800ExtraBold',
+        fontSize: 28,
+        fontFamily: 'Inter_900Black',
         color: '#FFF',
         marginTop: 2,
     },
-    tierBtn: {
+    benefitTag: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
-        backgroundColor: '#333',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
+        gap: 6,
+        backgroundColor: '#FFF',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 30,
     },
-    tierBtnText: {
-        color: '#FFF',
+    benefitTagText: {
+        color: '#000',
         fontSize: 12,
-        fontFamily: 'Inter_600SemiBold',
+        fontFamily: 'Inter_800ExtraBold',
     },
     statsGrid: {
         flexDirection: 'row',
@@ -313,33 +403,6 @@ const styles = StyleSheet.create({
         color: '#FFF',
         marginLeft: 24,
         marginBottom: 16,
-    },
-    dashboardGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        marginBottom: 24,
-    },
-    dashboardItem: {
-        width: '23%',
-        alignItems: 'center',
-        gap: 12,
-    },
-    dashIconBox: {
-        width: 60,
-        height: 60,
-        borderRadius: 24,
-        backgroundColor: '#1C1C1E',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#333',
-    },
-    dashLabel: {
-        fontSize: 12,
-        fontFamily: 'Inter_600SemiBold',
-        color: '#D1D5DB',
     },
     menuSection: {
         marginHorizontal: 20,

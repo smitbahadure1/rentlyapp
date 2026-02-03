@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { useState, useEffect } from 'react';
 import { getPopularCars, searchCarsByBrand, type CarData } from '@/services/carApi';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { storeCarData } from '@/services/carDataStore';
 
 const { width } = Dimensions.get('window');
@@ -13,27 +13,36 @@ const { width } = Dimensions.get('window');
 // Mock Data
 const POPULAR_SEARCHES = ['SUV', 'Electric', 'Luxury', '7 Seater', 'Under $50k'];
 
-const EXPLORE_CARS = [
-  { id: '1', name: 'Mercedes-Benz C-Class', image: require('@/assets/images/rec_bmw_5.png'), rating: '4.8', trips: '120 trips', price: 'N300k', distance: '2.5 km' },
-  { id: '2', name: 'Tesla Model 3', image: require('@/assets/images/rec_bmw_x4.png'), rating: '5.0', trips: '45 trips', price: 'N450k', distance: '5.0 km' },
-  { id: '3', name: 'Range Rover Sport', image: require('@/assets/images/rec_bmw_5.png'), rating: '4.9', trips: '80 trips', price: 'N600k', distance: '12 km' },
-  { id: '4', name: 'Toyota Camry', image: require('@/assets/images/rec_bmw_x4.png'), rating: '4.7', trips: '200+ trips', price: 'N150k', distance: '1.2 km' },
-];
+
+import { fetchCars } from '@/services/supabaseService';
 
 export default function ExploreScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ q?: string }>();
   const [searchQuery, setSearchQuery] = useState('');
-  const [cars, setCars] = useState<CarData[]>([]);
+  const [cars, setCars] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Sync search query from URL params
   useEffect(() => {
-    async function fetchCars() {
+    if (params.q) {
+      setSearchQuery(params.q);
+    }
+  }, [params.q]);
+
+  useEffect(() => {
+    async function loadExploreData() {
       try {
         setLoading(true);
-        // Fetch 50 cars for explore page (more variety)
-        const exploreCars = await getPopularCars(50);
-        setCars(exploreCars);
+        // Fetch from both sources for maximum variety
+        const [supabaseCars, apiCars] = await Promise.all([
+          fetchCars(),
+          getPopularCars(80)
+        ]);
+
+        const combined = [...(supabaseCars || []), ...(apiCars || [])];
+        setCars(combined);
       } catch (err) {
         console.error('Error fetching cars:', err);
         setError('Failed to load cars');
@@ -42,7 +51,7 @@ export default function ExploreScreen() {
       }
     }
 
-    fetchCars();
+    loadExploreData();
   }, []);
 
   // Filter cars based on search query
@@ -170,7 +179,13 @@ export default function ExploreScreen() {
                       <Text style={styles.feedPrice}>₹{car.price}k<Text style={styles.feedPriceUnit}>/day</Text></Text>
                       <Text style={styles.feedTotal}>₹{(car.price || 0) * 4}k est. total</Text>
                     </View>
-                    <TouchableOpacity style={styles.bookBtn}>
+                    <TouchableOpacity
+                      style={styles.bookBtn}
+                      onPress={() => {
+                        storeCarData(car.id, car);
+                        router.push(`/checkout/${car.id}`);
+                      }}
+                    >
                       <Text style={styles.bookBtnText}>Book Now</Text>
                     </TouchableOpacity>
                   </View>

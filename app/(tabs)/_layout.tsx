@@ -1,6 +1,8 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Tabs, useRouter, usePathname } from 'expo-router';
+import React, { useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { BackHandler, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { Colors } from '@/constants/theme';
@@ -8,28 +10,54 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
+  const pathname = usePathname();
+  const insets = useSafeAreaInsets();
+
+  // Root Back Button Integration
+  useEffect(() => {
+    const backAction = () => {
+      if (pathname === '/(tabs)/home' || pathname === '/home') {
+        BackHandler.exitApp();
+        return true;
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction,
+    );
+
+    return () => backHandler.remove();
+  }, [pathname]);
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#FFFFFF', // White for active in dark mode
-        tabBarInactiveTintColor: '#6B7280', // Grey for inactive
+        tabBarActiveTintColor: '#FFFFFF',
+        tabBarInactiveTintColor: '#6B7280',
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarStyle: {
-          paddingTop: 8,
-          height: 85,
-          borderTopWidth: 0,
-          elevation: 0, // Android shadow remove
-          shadowOpacity: 0, // iOS shadow remove
-          backgroundColor: '#000000', // Deep black background
+          height: Platform.OS === 'ios' ? 88 + insets.bottom : 70 + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 12,
+          paddingTop: 12,
+          borderTopWidth: 1,
+          borderTopColor: '#1C1C1E',
+          elevation: 0,
+          shadowOpacity: 0,
+          backgroundColor: '#000000',
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
-          marginTop: -4,
-          marginBottom: 4,
+          fontSize: 11,
+          fontWeight: '700',
           fontFamily: 'System',
+          letterSpacing: 0.5,
+          marginTop: 4,
+        },
+        tabBarIconStyle: {
+          marginTop: 4,
         }
       }}>
       <Tabs.Screen
@@ -54,10 +82,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="wallet"
+        name="active"
         options={{
-          title: 'Wallet',
-          tabBarIcon: ({ color, focused }) => <Ionicons size={24} name={focused ? "wallet" : "wallet-outline"} color={color} />,
+          title: 'Active',
+          tabBarIcon: ({ color, focused }) => <Ionicons size={24} name={focused ? "flash" : "flash-outline"} color={color} />,
         }}
       />
       <Tabs.Screen

@@ -1,0 +1,1102 @@
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Dimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInUp, FadeInRight } from 'react-native-reanimated';
+
+const { width } = Dimensions.get('window');
+
+// Mock Data
+const INITIAL_TRANSACTIONS = [
+    { id: '1', title: 'Top Up', date: 'Today, 10:30 AM', amount: '+ ₹50,000', type: 'credit' },
+    { id: '2', title: 'BMW 5 Series Rental', date: 'Yesterday, 04:15 PM', amount: '- ₹25,000', type: 'debit' },
+    { id: '3', title: 'Toyota Camry Rental', date: 'Oct 24, 09:00 AM', amount: '- ₹15,000', type: 'debit' },
+    { id: '4', title: 'Refund', date: 'Oct 20, 02:30 PM', amount: '+ ₹10,000', type: 'credit' },
+    { id: '5', title: 'Top Up', date: 'Oct 15, 11:00 AM', amount: '+ ₹100,000', type: 'credit' },
+];
+
+const INITIAL_CARDS = [
+    { id: '1', last4: '4242', brand: 'mastercard', color: ['#1C1C1E', '#000000'] },
+    { id: '2', last4: '8899', brand: 'visa', color: ['#27272A', '#1C1C1E'] },
+];
+
+const INITIAL_REWARDS = [
+    { id: '1', title: '10% Discount', subtitle: 'Valid on next rental', icon: 'gift', claimed: false, value: 0 },
+    { id: '2', title: '₹ 500 Cashback', subtitle: 'Added to wallet', icon: 'cash', claimed: false, value: 500 },
+    { id: '3', title: 'Premium Pass', subtitle: '7 days free protection', icon: 'shield-checkmark', claimed: false, value: 0 },
+];
+
+export default function WalletScreen() {
+    const [showCardsModal, setShowCardsModal] = useState(false);
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
+    const [showRewardsModal, setShowRewardsModal] = useState(false);
+    const [showAddCardModal, setShowAddCardModal] = useState(false);
+    const [showTopUpModal, setShowTopUpModal] = useState(false);
+    const [showTransferModal, setShowTransferModal] = useState(false);
+
+    // State for Dynamic Data
+    const [balance, setBalance] = useState(145850.50);
+    const [cards, setCards] = useState(INITIAL_CARDS);
+    const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
+    const [rewards, setRewards] = useState(INITIAL_REWARDS);
+
+    // Form State
+    const [newCardNumber, setNewCardNumber] = useState('');
+    const [newCardExpiry, setNewCardExpiry] = useState('');
+    const [newCardCVV, setNewCardCVV] = useState('');
+    const [activeField, setActiveField] = useState<'number' | 'expiry' | 'cvv'>('number');
+
+    const handleKeyboardPress = (val: string) => {
+        if (activeField === 'number') {
+            if (newCardNumber.length < 16) setNewCardNumber(prev => prev + val);
+        } else if (activeField === 'expiry') {
+            if (newCardExpiry.length < 4) setNewCardExpiry(prev => prev + val);
+        } else if (activeField === 'cvv') {
+            if (newCardCVV.length < 3) setNewCardCVV(prev => prev + val);
+        }
+    };
+
+    const handleClear = () => {
+        if (activeField === 'number') setNewCardNumber('');
+        else if (activeField === 'expiry') setNewCardExpiry('');
+        else if (activeField === 'cvv') setNewCardCVV('');
+    };
+
+    const handleAddCard = () => {
+        if (newCardNumber.length < 4) return;
+
+        const newCard = {
+            id: Date.now().toString(),
+            last4: newCardNumber.slice(-4),
+            brand: 'visa',
+            color: ['#1C1C1E', '#000000']
+        };
+
+        setCards([...cards, newCard]);
+        setShowAddCardModal(false);
+        setNewCardNumber('');
+        setNewCardExpiry('');
+        setNewCardCVV('');
+        setActiveField('number');
+    };
+
+    const handleClaimReward = (id: string) => {
+        const reward = rewards.find(r => r.id === id);
+        if (!reward || reward.claimed) return;
+
+        // If it's a cashback reward, add to balance
+        if (reward.value > 0) {
+            setBalance(prev => prev + reward.value);
+            setTransactions(prev => [
+                {
+                    id: Date.now().toString(),
+                    title: 'Reward Cashback',
+                    date: 'Today, Just now',
+                    amount: `+ ₹${reward.value}`,
+                    type: 'credit'
+                },
+                ...prev
+            ]);
+        }
+
+        setRewards(prev => prev.map(r =>
+            r.id === id ? { ...r, claimed: true } : r
+        ));
+    };
+
+    return (
+        <View style={styles.container}>
+            <StatusBar style="light" />
+
+            <SafeAreaView style={styles.header} edges={['top']}>
+                <View>
+                    <Text style={styles.headerSubtitle}>ACCOUNT BALANCE</Text>
+                    <Text style={styles.headerTitle}>Wallet</Text>
+                </View>
+            </SafeAreaView>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+
+                {/* Main Balance Card */}
+                <View style={styles.balanceContainer}>
+                    <View style={styles.balanceCard}>
+                        <View style={styles.balanceHeader}>
+                            <Text style={styles.balanceLabel}>TOTAL BALANCE</Text>
+                            <Ionicons name="wallet-outline" size={20} color="#9CA3AF" />
+                        </View>
+
+                        <View style={styles.amountContainer}>
+                            <Text style={styles.currencySymbol}>₹</Text>
+                            <Text style={styles.balanceAmount}>{Math.floor(balance).toLocaleString()}</Text>
+                            <Text style={styles.balanceDecimal}>.{((balance % 1).toFixed(2)).split('.')[1]}</Text>
+                        </View>
+
+                        <View style={styles.balanceFooter}>
+                            <TouchableOpacity style={styles.primaryActionBtn} onPress={() => setShowTopUpModal(true)}>
+                                <Ionicons name="add" size={22} color="#000" />
+                                <Text style={styles.primaryActionText}>Top Up</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.secondaryActionBtn} onPress={() => setShowTransferModal(true)}>
+                                <Ionicons name="send-outline" size={18} color="#FFF" />
+                                <Text style={styles.secondaryActionText}>Transfer</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Subtle decorative element matching home screen */}
+                        <View style={styles.decorativeCircle} />
+                    </View>
+                </View>
+
+                {/* Quick Actions */}
+                <View style={styles.actionGrid}>
+                    <View style={{ flex: 1 }}>
+                        <TouchableOpacity style={styles.actionItem} onPress={() => setShowCardsModal(true)}>
+                            <View style={styles.actionIconBox}>
+                                <Ionicons name="card-outline" size={20} color="#FFF" />
+                            </View>
+                            <Text style={styles.actionText}>Cards</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                        <TouchableOpacity style={styles.actionItem} onPress={() => setShowHistoryModal(true)}>
+                            <View style={styles.actionIconBox}>
+                                <Ionicons name="time-outline" size={20} color="#FFF" />
+                            </View>
+                            <Text style={styles.actionText}>History</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                        <TouchableOpacity style={styles.actionItem} onPress={() => setShowRewardsModal(true)}>
+                            <View style={styles.actionIconBox}>
+                                <Ionicons name="gift-outline" size={20} color="#FFF" />
+                            </View>
+                            <Text style={styles.actionText}>Rewards</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                {/* Payment Methods */}
+                <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Payment Methods</Text>
+                        <TouchableOpacity onPress={() => setShowCardsModal(true)}>
+                            <Text style={styles.seeAllText}>View all</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cardsScroll}>
+                        {cards.map((card, index) => (
+                            <View key={card.id}>
+                                <TouchableOpacity
+                                    style={styles.paymentCard}
+                                    activeOpacity={0.7}
+                                    onPress={() => setShowCardsModal(true)}
+                                >
+                                    <View style={styles.cardTop}>
+                                        <Ionicons name="card" size={28} color="#FFF" />
+                                        <Text style={styles.cardBrandText}>{card.brand.toUpperCase()}</Text>
+                                    </View>
+                                    <View>
+                                        <Text style={styles.cardNumber}>•••• •••• •••• {card.last4}</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                        <TouchableOpacity
+                            style={styles.addCardBtn}
+                            onPress={() => setShowAddCardModal(true)}
+                            activeOpacity={0.6}
+                        >
+                            <Ionicons name="add" size={32} color="#9CA3AF" />
+                        </TouchableOpacity>
+                    </ScrollView>
+                </View>
+
+                {/* Spending Insights */}
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { marginLeft: 24 }]}>Spending Insights</Text>
+                    <View style={styles.insightsCard}>
+                        <View style={styles.insightsHeader}>
+                            <View>
+                                <Text style={styles.insightLabel}>THIS MONTH</Text>
+                                <Text style={styles.insightTotal}>₹ 1,12,500</Text>
+                            </View>
+                            <View style={styles.trendRow}>
+                                <Ionicons name="trending-up" size={16} color="#EF4444" />
+                                <Text style={styles.trendText}>+12.5%</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.statsContainer}>
+                            <View style={styles.statItem}>
+                                <View style={styles.statIconBox}>
+                                    <Ionicons name="car" size={18} color="#FFF" />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <View style={styles.statLabelRow}>
+                                        <Text style={styles.statTitle}>Car Rentals</Text>
+                                        <Text style={styles.statValue}>₹ 85,000</Text>
+                                    </View>
+                                    <View style={styles.progressBg}>
+                                        <View style={[styles.progressFill, { width: '75%', backgroundColor: '#FFF' }]} />
+                                    </View>
+                                </View>
+                            </View>
+
+                            <View style={styles.statItem}>
+                                <View style={styles.statIconBox}>
+                                    <Ionicons name="shield-checkmark" size={18} color="#FFF" />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <View style={styles.statLabelRow}>
+                                        <Text style={styles.statTitle}>Insurance</Text>
+                                        <Text style={styles.statValue}>₹ 15,000</Text>
+                                    </View>
+                                    <View style={styles.progressBg}>
+                                        <View style={[styles.progressFill, { width: '15%', backgroundColor: '#6B7280' }]} />
+                                    </View>
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+                </View>
+
+                {/* Membership Status */}
+                <View style={[styles.section, { marginBottom: 100 }]}>
+                    <Text style={[styles.sectionTitle, { marginLeft: 24 }]}>Membership</Text>
+                    <TouchableOpacity activeOpacity={0.9} style={styles.membershipCard}>
+                        <LinearGradient
+                            colors={['#1C1C1E', '#000000']}
+                            style={styles.membershipGradient}
+                        >
+                            <View style={styles.membershipInfo}>
+                                <View style={styles.tierBadge}>
+                                    <Text style={styles.tierText}>PLATINUM</Text>
+                                </View>
+                                <Text style={styles.membershipTitle}>Enjoy VIP benefits on every booking</Text>
+                                <Text style={styles.pointsText}>8,450 / 10,000 points to Black Tier</Text>
+                                <View style={styles.tierProgressBg}>
+                                    <View style={[styles.tierProgressFill, { width: '84.5%' }]} />
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={24} color="#333" />
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </View>
+
+            </ScrollView>
+
+            {/* Modals */}
+            <Modal visible={showCardsModal} transparent animationType="slide">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Manage Cards</Text>
+                            <TouchableOpacity onPress={() => setShowCardsModal(false)}>
+                                <Ionicons name="close" size={24} color="#FFF" />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.modalContent}>
+                            {cards.map((card) => (
+                                <View key={card.id} style={styles.modalItem}>
+                                    <Ionicons name="card" size={24} color="#FFF" />
+                                    <View style={{ flex: 1, marginLeft: 16 }}>
+                                        <Text style={styles.modalItemTitle}>•••• {card.last4}</Text>
+                                        <Text style={styles.modalItemSubtitle}>{card.brand.toUpperCase()} - Active</Text>
+                                    </View>
+                                    <TouchableOpacity onPress={() => setCards(cards.filter(c => c.id !== card.id))}>
+                                        <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                            <TouchableOpacity
+                                style={styles.addCardModalBtn}
+                                onPress={() => {
+                                    setShowCardsModal(false);
+                                    setShowAddCardModal(true);
+                                }}
+                            >
+                                <Ionicons name="add-circle-outline" size={20} color="#FFF" />
+                                <Text style={styles.addCardModalText}>Add Another Card</Text>
+                            </TouchableOpacity>
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* History Modal */}
+            <Modal visible={showHistoryModal} transparent animationType="slide">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Full History</Text>
+                            <TouchableOpacity onPress={() => setShowHistoryModal(false)}>
+                                <Ionicons name="close" size={24} color="#FFF" />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.modalContent}>
+                            {transactions.map((item) => (
+                                <View key={item.id} style={styles.modalItem}>
+                                    <View style={styles.activityIconBox}>
+                                        <Ionicons
+                                            name={item.type === 'credit' ? "arrow-down" : "arrow-up"}
+                                            size={16}
+                                            color={item.type === 'credit' ? "#10B981" : "#FFF"}
+                                        />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.modalItemTitle}>{item.title}</Text>
+                                        <Text style={styles.modalItemSubtitle}>{item.date}</Text>
+                                    </View>
+                                    <Text style={[styles.activityAmount, { color: item.type === 'credit' ? '#10B981' : '#FFF' }]}>
+                                        {item.amount}
+                                    </Text>
+                                </View>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Rewards Modal */}
+            <Modal visible={showRewardsModal} transparent animationType="slide">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>My Rewards</Text>
+                            <TouchableOpacity onPress={() => setShowRewardsModal(false)}>
+                                <Ionicons name="close" size={24} color="#FFF" />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.modalContent}>
+                            {rewards.map((reward) => (
+                                <View key={reward.id} style={[styles.rewardCard, { marginBottom: 12, opacity: reward.claimed ? 0.6 : 1 }]}>
+                                    <Ionicons name={reward.icon as any} size={32} color="#FFF" />
+                                    <View style={{ flex: 1, marginLeft: 16 }}>
+                                        <Text style={styles.modalItemTitle}>{reward.title}</Text>
+                                        <Text style={styles.modalItemSubtitle}>{reward.subtitle}</Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={[styles.claimButton, reward.claimed && { backgroundColor: '#27272A' }]}
+                                        onPress={() => handleClaimReward(reward.id)}
+                                        disabled={reward.claimed}
+                                    >
+                                        <Text style={[styles.claimText, reward.claimed && { color: '#6B7280' }]}>
+                                            {reward.claimed ? 'Claimed' : 'Claim'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Top Up Modal */}
+            <Modal visible={showTopUpModal} transparent animationType="slide">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Top Up Wallet</Text>
+                            <TouchableOpacity onPress={() => setShowTopUpModal(false)}>
+                                <Ionicons name="close" size={24} color="#FFF" />
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.formContainer}>
+                            <Text style={styles.inputLabel}>ENTER AMOUNT</Text>
+                            <View style={styles.inputWrapper}>
+                                <Text style={{ color: '#FFF', fontSize: 24, fontFamily: 'Inter_800ExtraBold' }}>₹ </Text>
+                                <Text style={{ color: '#FFF', fontSize: 24, fontFamily: 'Inter_800ExtraBold' }}>5,000</Text>
+                            </View>
+                            <TouchableOpacity
+                                style={styles.saveCardBtn}
+                                onPress={() => {
+                                    setBalance(prev => prev + 5000);
+                                    setShowTopUpModal(false);
+                                }}
+                            >
+                                <Text style={styles.saveCardText}>Add Funds</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Transfer Modal */}
+            <Modal visible={showTransferModal} transparent animationType="slide">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Transfer Money</Text>
+                            <TouchableOpacity onPress={() => setShowTransferModal(false)}>
+                                <Ionicons name="close" size={24} color="#FFF" />
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.formContainer}>
+                            <Text style={styles.inputLabel}>RECIPIENT UPI ID</Text>
+                            <View style={styles.inputWrapper}>
+                                <Text style={{ color: '#FFF', fontSize: 16, fontFamily: 'Inter_600SemiBold' }}>rently@upi</Text>
+                            </View>
+                            <TouchableOpacity
+                                style={styles.saveCardBtn}
+                                onPress={() => {
+                                    setBalance(prev => prev - 1000);
+                                    setShowTransferModal(false);
+                                }}
+                            >
+                                <Text style={styles.saveCardText}>Send Money</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Add Card Modal */}
+            <Modal visible={showAddCardModal} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContainer, { maxHeight: '90%' }]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Add New Card</Text>
+                            <TouchableOpacity onPress={() => setShowAddCardModal(false)}>
+                                <Ionicons name="close" size={24} color="#FFF" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            <View style={styles.formContainer}>
+                                <View style={styles.inputGroup}>
+                                    <Text style={[styles.inputLabel, activeField === 'number' && { color: '#FFF' }]}>CARD NUMBER</Text>
+                                    <TouchableOpacity
+                                        onPress={() => setActiveField('number')}
+                                        style={[styles.inputWrapper, { height: 64 }, activeField === 'number' && styles.inputWrapperActive]}
+                                    >
+                                        <Text
+                                            numberOfLines={1}
+                                            adjustsFontSizeToFit
+                                            style={{ color: '#FFF', fontSize: 24, fontFamily: 'Inter_900Black', flex: 1, textAlign: 'center' }}
+                                        >
+                                            {newCardNumber ? newCardNumber.match(/.{1,4}/g)?.join('  ') : 'XXXX  XXXX  XXXX  XXXX'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                <View style={{ flexDirection: 'row', gap: 16 }}>
+                                    <View style={[styles.inputGroup, { flex: 1 }]}>
+                                        <Text style={[styles.inputLabel, activeField === 'expiry' && { color: '#FFF' }]}>EXPIRY</Text>
+                                        <TouchableOpacity
+                                            onPress={() => setActiveField('expiry')}
+                                            style={[styles.inputWrapper, { height: 64 }, activeField === 'expiry' && styles.inputWrapperActive]}
+                                        >
+                                            <Text style={{ color: '#FFF', fontSize: 20, fontFamily: 'Inter_800ExtraBold', textAlign: 'center', width: '100%' }}>
+                                                {newCardExpiry ? `${newCardExpiry.slice(0, 2)}/${newCardExpiry.slice(2)}` : 'MM/YY'}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                    <View style={[styles.inputGroup, { flex: 1 }]}>
+                                        <Text style={[styles.inputLabel, activeField === 'cvv' && { color: '#FFF' }]}>CVV</Text>
+                                        <TouchableOpacity
+                                            onPress={() => setActiveField('cvv')}
+                                            style={[styles.inputWrapper, { height: 64 }, activeField === 'cvv' && styles.inputWrapperActive]}
+                                        >
+                                            <Text style={{ color: '#FFF', fontSize: 20, fontFamily: 'Inter_800ExtraBold', textAlign: 'center', width: '100%' }}>
+                                                {newCardCVV ? '***' : '000'}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+
+                                {/* Simulating keyboard entry */}
+                                <View style={styles.mockKeyboard}>
+                                    <View style={styles.row}>
+                                        {['1', '2', '3'].map(num => (
+                                            <TouchableOpacity key={num} style={styles.key} onPress={() => handleKeyboardPress(num)}>
+                                                <Text style={styles.keyText}>{num}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                    <View style={styles.row}>
+                                        {['4', '5', '6'].map(num => (
+                                            <TouchableOpacity key={num} style={styles.key} onPress={() => handleKeyboardPress(num)}>
+                                                <Text style={styles.keyText}>{num}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                    <View style={styles.row}>
+                                        {['7', '8', '9'].map(num => (
+                                            <TouchableOpacity key={num} style={styles.key} onPress={() => handleKeyboardPress(num)}>
+                                                <Text style={styles.keyText}>{num}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                    <View style={styles.row}>
+                                        <TouchableOpacity style={[styles.key, { flex: 1 }]} onPress={handleClear}>
+                                            <Text style={[styles.keyText, { color: '#EF4444' }]}>CLEAR</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity key={'0'} style={styles.key} onPress={() => handleKeyboardPress('0')}>
+                                            <Text style={styles.keyText}>0</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[styles.key, { flex: 1, backgroundColor: '#FFF' }]}
+                                            onPress={() => {
+                                                if (activeField === 'number') setActiveField('expiry');
+                                                else if (activeField === 'expiry') setActiveField('cvv');
+                                                else setActiveField('number');
+                                            }}
+                                        >
+                                            <Text style={[styles.keyText, { color: '#000' }]}>NEXT</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+
+                                <TouchableOpacity
+                                    style={[styles.saveCardBtn, { opacity: (newCardNumber && newCardExpiry && newCardCVV) ? 1 : 0.5, marginBottom: 40 }]}
+                                    onPress={handleAddCard}
+                                    disabled={!(newCardNumber && newCardExpiry && newCardCVV)}
+                                >
+                                    <Text style={styles.saveCardText}>Save Card</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#000',
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 24,
+        paddingBottom: 20,
+    },
+    headerSubtitle: {
+        color: '#9CA3AF',
+        fontSize: 12,
+        fontFamily: 'Inter_600SemiBold',
+        letterSpacing: 1,
+    },
+    headerTitle: {
+        fontSize: 32,
+        fontFamily: 'Inter_800ExtraBold',
+        color: '#FFF',
+    },
+    scrollContent: {
+        paddingTop: 10,
+    },
+    balanceContainer: {
+        paddingHorizontal: 20,
+        marginBottom: 32,
+    },
+    balanceCard: {
+        backgroundColor: '#1C1C1E',
+        borderRadius: 24,
+        padding: 24,
+        height: 200,
+        justifyContent: 'space-between',
+        borderWidth: 1,
+        borderColor: '#27272A',
+        overflow: 'hidden',
+        position: 'relative',
+    },
+    balanceHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    balanceLabel: {
+        color: '#9CA3AF',
+        fontSize: 12,
+        fontFamily: 'Inter_700Bold',
+        letterSpacing: 1,
+    },
+    amountContainer: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+    },
+    currencySymbol: {
+        color: '#FFF',
+        fontSize: 24,
+        fontFamily: 'Inter_800ExtraBold',
+        marginBottom: 8,
+        marginRight: 4,
+    },
+    balanceAmount: {
+        color: '#FFF',
+        fontSize: 44,
+        fontFamily: 'Inter_800ExtraBold',
+    },
+    balanceDecimal: {
+        fontSize: 20,
+        fontFamily: 'Inter_600SemiBold',
+        color: '#6B7280',
+        marginBottom: 8,
+    },
+    balanceFooter: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    primaryActionBtn: {
+        flex: 1,
+        height: 48,
+        borderRadius: 16,
+        backgroundColor: '#FFF',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+    },
+    primaryActionText: {
+        fontFamily: 'Inter_700Bold',
+        fontSize: 14,
+        color: '#000',
+    },
+    secondaryActionBtn: {
+        flex: 1,
+        height: 48,
+        borderRadius: 16,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: '#333',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+    },
+    secondaryActionText: {
+        fontFamily: 'Inter_600SemiBold',
+        fontSize: 14,
+        color: '#FFF',
+    },
+    decorativeCircle: {
+        position: 'absolute',
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: 'rgba(255,255,255,0.02)',
+        right: -30,
+        top: -30,
+    },
+    actionGrid: {
+        flexDirection: 'row',
+        paddingHorizontal: 20,
+        gap: 12,
+        marginBottom: 40,
+    },
+    actionItem: {
+        backgroundColor: '#1C1C1E',
+        borderRadius: 20,
+        padding: 16,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#27272A',
+        gap: 10,
+    },
+    actionIconBox: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: '#000',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#333',
+    },
+    actionText: {
+        color: '#9CA3AF',
+        fontSize: 13,
+        fontFamily: 'Inter_600SemiBold',
+    },
+    section: {
+        marginBottom: 32,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 24,
+        marginBottom: 16,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontFamily: 'Inter_700Bold',
+        color: '#FFF',
+    },
+    seeAllText: {
+        color: '#6B7280',
+        fontSize: 14,
+        fontFamily: 'Inter_600SemiBold',
+    },
+    cardsScroll: {
+        paddingHorizontal: 24,
+        gap: 16,
+    },
+    paymentCard: {
+        width: 240,
+        height: 140,
+        backgroundColor: '#1C1C1E',
+        borderRadius: 20,
+        padding: 20,
+        justifyContent: 'space-between',
+        borderWidth: 1,
+        borderColor: '#333',
+    },
+    cardTop: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    cardNumber: {
+        color: '#FFF',
+        fontSize: 16,
+        fontFamily: 'Inter_700Bold',
+        letterSpacing: 1,
+    },
+    cardBrand: {
+        color: '#6B7280',
+        fontSize: 12,
+        fontFamily: 'Inter_600SemiBold',
+        marginTop: 4,
+    },
+    addCardBtn: {
+        width: 80,
+        height: 140,
+        borderRadius: 20,
+        backgroundColor: '#000',
+        borderWidth: 1,
+        borderColor: '#27272A',
+        borderStyle: 'dashed',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    activityItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 24,
+        marginBottom: 20,
+    },
+    activityIconBox: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: '#1C1C1E',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#27272A',
+        marginRight: 16,
+    },
+    activityDetails: {
+        flex: 1,
+    },
+    activityTitle: {
+        color: '#FFF',
+        fontSize: 15,
+        fontFamily: 'Inter_700Bold',
+    },
+    activityDate: {
+        color: '#6B7280',
+        fontSize: 12,
+        fontFamily: 'Inter_500Medium',
+        marginTop: 2,
+    },
+    activityAmount: {
+        fontSize: 15,
+        fontFamily: 'Inter_700Bold',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        justifyContent: 'flex-end',
+    },
+    modalContainer: {
+        backgroundColor: '#1C1C1E',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        padding: 24,
+        maxHeight: '70%',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontFamily: 'Inter_800ExtraBold',
+        color: '#FFF',
+    },
+    modalContent: {
+        paddingBottom: 20,
+    },
+    modalItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#27272A',
+    },
+    modalItemTitle: {
+        color: '#FFF',
+        fontSize: 16,
+        fontFamily: 'Inter_700Bold',
+    },
+    modalItemSubtitle: {
+        color: '#6B7280',
+        fontSize: 12,
+        fontFamily: 'Inter_500Medium',
+        marginTop: 2,
+    },
+    rewardCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#000',
+        padding: 20,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#27272A',
+    },
+    claimButton: {
+        backgroundColor: '#FFF',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 12,
+    },
+    claimText: {
+        color: '#000',
+        fontSize: 12,
+        fontFamily: 'Inter_700Bold',
+    },
+    // Insights Styles
+    insightsCard: {
+        backgroundColor: '#1C1C1E',
+        marginHorizontal: 20,
+        borderRadius: 24,
+        padding: 24,
+        borderWidth: 1,
+        borderColor: '#27272A',
+    },
+    insightsHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 24,
+    },
+    insightLabel: {
+        color: '#6B7280',
+        fontSize: 10,
+        fontFamily: 'Inter_700Bold',
+        letterSpacing: 1,
+    },
+    insightTotal: {
+        color: '#FFF',
+        fontSize: 28,
+        fontFamily: 'Inter_800ExtraBold',
+        marginTop: 4,
+    },
+    trendRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        gap: 4,
+    },
+    trendText: {
+        color: '#EF4444',
+        fontSize: 12,
+        fontFamily: 'Inter_700Bold',
+    },
+    statsContainer: {
+        gap: 20,
+    },
+    statItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+    },
+    statIconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        backgroundColor: '#000',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#333',
+    },
+    statLabelRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    statTitle: {
+        color: '#9CA3AF',
+        fontSize: 14,
+        fontFamily: 'Inter_500Medium',
+    },
+    statValue: {
+        color: '#FFF',
+        fontSize: 14,
+        fontFamily: 'Inter_700Bold',
+    },
+    progressBg: {
+        height: 4,
+        backgroundColor: '#27272A',
+        borderRadius: 2,
+        overflow: 'hidden',
+    },
+    progressFill: {
+        height: '100%',
+        borderRadius: 2,
+    },
+    // Membership Styles
+    membershipCard: {
+        marginHorizontal: 20,
+        borderRadius: 24,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#27272A',
+    },
+    membershipGradient: {
+        padding: 24,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    membershipInfo: {
+        flex: 1,
+    },
+    tierBadge: {
+        backgroundColor: '#FFF',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+        alignSelf: 'flex-start',
+        marginBottom: 12,
+    },
+    tierText: {
+        color: '#000',
+        fontSize: 10,
+        fontFamily: 'Inter_900Black',
+    },
+    membershipTitle: {
+        color: '#FFF',
+        fontSize: 16,
+        fontFamily: 'Inter_700Bold',
+        marginBottom: 8,
+    },
+    pointsText: {
+        color: '#6B7280',
+        fontSize: 12,
+        fontFamily: 'Inter_500Medium',
+        marginBottom: 12,
+    },
+    tierProgressBg: {
+        height: 6,
+        backgroundColor: '#27272A',
+        borderRadius: 3,
+        overflow: 'hidden',
+    },
+    tierProgressFill: {
+        height: '100%',
+        backgroundColor: '#FFF',
+        borderRadius: 3,
+    },
+    // Form Styles
+    formContainer: {
+        gap: 24,
+    },
+    inputGroup: {
+        gap: 8,
+    },
+    inputLabel: {
+        color: '#6B7280',
+        fontSize: 10,
+        fontFamily: 'Inter_700Bold',
+        letterSpacing: 1,
+    },
+    inputWrapper: {
+        backgroundColor: '#000',
+        height: 56,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#333',
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+    },
+    inputWrapperActive: {
+        borderColor: '#FFF',
+    },
+    saveCardBtn: {
+        backgroundColor: '#FFF',
+        height: 56,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    saveCardText: {
+        color: '#000',
+        fontSize: 16,
+        fontFamily: 'Inter_700Bold',
+    },
+    mockKeyboard: {
+        gap: 8,
+        marginTop: 16,
+    },
+    row: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    key: {
+        backgroundColor: '#1C1C1E',
+        flex: 1,
+        height: 54,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#333',
+    },
+    keyText: {
+        color: '#FFF',
+        fontFamily: 'Inter_700Bold',
+        fontSize: 20,
+    },
+    addCardModalBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        marginTop: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: '#333',
+        borderStyle: 'dashed',
+        borderRadius: 16,
+    },
+    addCardModalText: {
+        color: '#FFF',
+        fontFamily: 'Inter_600SemiBold',
+    },
+    cardBrandText: {
+        color: '#6B7280',
+        fontSize: 10,
+        fontFamily: 'Inter_800ExtraBold',
+    }
+});
+
+

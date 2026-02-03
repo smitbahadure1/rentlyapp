@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Dimensions, Platform, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Dimensions, Platform, Modal, ActivityIndicator, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,7 +11,11 @@ import { getCarData } from '@/services/carDataStore';
 
 const { width } = Dimensions.get('window');
 
+import { useUser } from '@clerk/clerk-expo';
+import { createSupabaseBooking, upsertCar } from '@/services/supabaseService';
+
 export default function CheckoutScreen() {
+    const { user } = useUser();
     const { id } = useLocalSearchParams();
     const router = useRouter();
     const [insurance, setInsurance] = useState(false);
@@ -25,23 +29,33 @@ export default function CheckoutScreen() {
     const [showPicker, setShowPicker] = useState(false);
     const [pickerMode, setPickerMode] = useState<'start' | 'end'>('start');
 
+    // Location State
+    const [pickupAddress, setPickupAddress] = useState('Juhu, Mumbai');
+    const [dropAddress, setDropAddress] = useState('Juhu, Mumbai');
+
     // Get car data from store
     const storedCar = getCarData(id as string);
 
     // Use stored data or fallback to mock data
     const car = storedCar ? {
+        id: storedCar.id,
         name: storedCar.model,
         brand: storedCar.brand,
         image: storedCar.image,
-        price: (storedCar.price || 250) * 1000, // Convert from ₹Xk to actual number
+        price: (storedCar.price || 250) * 1000,
         rating: storedCar.rating?.toFixed(1) || '4.5',
-    } : {
-        name: 'BMW 5 Series',
-        brand: 'BMW',
-        image: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=800&q=80',
-        price: 250000,
-        rating: '5.0',
-    };
+    } : null;
+
+    if (!car) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <Text style={{ color: '#FFF', fontSize: 18, fontFamily: 'Inter_700Bold' }}>Booking details unavailable</Text>
+                <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20, padding: 12, backgroundColor: '#1C1C1E', borderRadius: 12 }}>
+                    <Text style={{ color: '#FFF', fontFamily: 'Inter_600SemiBold' }}>Return to Fleet</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
 
     // Calculate Duration & Totals
     const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
@@ -85,19 +99,48 @@ export default function CheckoutScreen() {
     };
 
     const handlePayment = async () => {
+        if (!user) {
+            alert('Please sign in to complete your booking');
+            return;
+        }
+
         setIsProcessing(true);
 
-        // Simulate payment processing
-        setTimeout(() => {
+        try {
+            // 1. Ensure the car exists in Supabase (especially if it's from API)
+            console.log('Upserting car:', car.id);
+            await upsertCar(storedCar);
+
+            // 2. Create the booking record
+            console.log('Creating booking for user:', user.id);
+            const bookingPayload = {
+                car_id: car.id,
+                user_id: user.id,
+                status: 'upcoming' as const,
+                start_date: startDate.toISOString(),
+                end_date: endDate.toISOString(),
+                total_price: total,
+                pickup_location: pickupAddress,
+                drop_location: dropAddress,
+            };
+
+            await createSupabaseBooking(bookingPayload);
+
             setIsProcessing(false);
             setShowSuccessModal(true);
 
-            // Auto redirect to bookings after 2.5 seconds
+            // Redirect to Bookings list after 2.5 seconds
             setTimeout(() => {
                 setShowSuccessModal(false);
-                router.push('/(tabs)/bookings');
+                router.replace('/(tabs)/bookings');
             }, 2500);
-        }, 1500);
+        } catch (error: any) {
+            console.error('Booking failed:', error);
+            setIsProcessing(false);
+            // Show the actual error message to help debug
+            const msg = error.message || JSON.stringify(error);
+            alert(`Booking Error: ${msg}`);
+        }
     };
 
     return (
@@ -158,47 +201,69 @@ export default function CheckoutScreen() {
                                     <Text style={styles.tripTime}>{formatTime(endDate)}</Text>
                                 </TouchableOpacity>
                             </View>
-                            <Text style={styles.locationText}>Lagos Airport, Terminal 2</Text>
-                        </View>
 
-                        {/* Dashed Divider */}
-                        <View style={styles.receiptDivider}>
-                            <View style={styles.notchLeft} />
-                            <View style={styles.dashedLine} />
-                            <View style={styles.notchRight} />
-                        </View>
-
-                        {/* Price Breakdown */}
-                        <View style={styles.priceSection}>
-                            <View style={styles.row}>
-                                <Text style={styles.rowLabel}>Rental Rate ({days} days)</Text>
-                                <Text style={styles.rowValue}>{formatCurrency(basePrice)}</Text>
-                            </View>
-
-                            {/* Insurance Toggle Row */}
-                            <View style={styles.insuranceRow}>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.insuranceTitle}>Full Protection</Text>
-                                    <Text style={styles.insuranceDesc}>Covers accidents & theft</Text>
-                                </View>
-                                <View style={styles.insuranceRight}>
-                                    <Text style={styles.insurancePrice}>+ {formatCurrency(45000)}</Text>
-                                    <Switch
-                                        value={insurance}
-                                        onValueChange={setInsurance}
-                                        trackColor={{ false: '#333', true: '#10B981' }}
-                                        thumbColor={'#FFF'}
+                            {/* Location Inputs */}
+                            <View style={styles.locationSection}>
+                                <View style={styles.locationInputBox}>
+                                    <Ionicons name="location-outline" size={16} color="#9CA3AF" />
+                                    <TextInput
+                                        style={styles.locationInput}
+                                        placeholder="Enter Pickup Address"
+                                        placeholderTextColor="#4B5563"
+                                        value={pickupAddress}
+                                        onChangeText={setPickupAddress}
                                     />
                                 </View>
-                            </View>
-
-                            <View style={styles.totalRow}>
-                                <Text style={styles.totalLabel}>Total to pay</Text>
-                                <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
+                                <View style={styles.locationInputBox}>
+                                    <Ionicons name="map-outline" size={16} color="#9CA3AF" />
+                                    <TextInput
+                                        style={styles.locationInput}
+                                        placeholder="Enter Drop-off Address"
+                                        placeholderTextColor="#4B5563"
+                                        value={dropAddress}
+                                        onChangeText={setDropAddress}
+                                    />
+                                </View>
                             </View>
                         </View>
                     </View>
 
+                    {/* Dashed Divider */}
+                    <View style={styles.receiptDivider}>
+                        <View style={styles.notchLeft} />
+                        <View style={styles.dashedLine} />
+                        <View style={styles.notchRight} />
+                    </View>
+
+                    {/* Price Breakdown */}
+                    <View style={styles.priceSection}>
+                        <View style={styles.row}>
+                            <Text style={styles.rowLabel}>Rental Rate ({days} days)</Text>
+                            <Text style={styles.rowValue}>{formatCurrency(basePrice)}</Text>
+                        </View>
+
+                        {/* Insurance Toggle Row */}
+                        <View style={styles.insuranceRow}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.insuranceTitle}>Full Protection</Text>
+                                <Text style={styles.insuranceDesc}>Covers accidents & theft</Text>
+                            </View>
+                            <View style={styles.insuranceRight}>
+                                <Text style={styles.insurancePrice}>+ {formatCurrency(45000)}</Text>
+                                <Switch
+                                    value={insurance}
+                                    onValueChange={setInsurance}
+                                    trackColor={{ false: '#333', true: '#10B981' }}
+                                    thumbColor={'#FFF'}
+                                />
+                            </View>
+                        </View>
+
+                        <View style={styles.totalRow}>
+                            <Text style={styles.totalLabel}>Total to pay</Text>
+                            <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
+                        </View>
+                    </View>
                     {/* Payment Method Selector */}
                     <Text style={styles.sectionTitle}>Payment Method</Text>
                     <View style={styles.paymentGrid}>
@@ -413,10 +478,10 @@ export default function CheckoutScreen() {
                             </View>
 
                             {/* Success Message */}
-                            <Text style={styles.successTitle}>Payment Successful!</Text>
+                            <Text style={styles.successTitle}>Elite Booking Confirmed</Text>
                             <Text style={styles.successMessage}>
-                                Your booking has been confirmed.{'\n'}
-                                Redirecting to your bookings...
+                                Your luxury fleet is being prepared.{'\n'}
+                                Check status in your Bookings.
                             </Text>
 
                             {/* Loading Indicator */}
@@ -565,12 +630,24 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontFamily: 'Inter_600SemiBold',
     },
-    locationText: {
-        textAlign: 'center',
-        color: '#9CA3AF',
-        fontSize: 12,
+    locationSection: {
+        marginTop: 20,
+        gap: 12,
+    },
+    locationInputBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#27272A',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        height: 44,
+        gap: 8,
+    },
+    locationInput: {
+        flex: 1,
+        color: '#FFF',
+        fontSize: 13,
         fontFamily: 'Inter_500Medium',
-        marginTop: 4,
     },
     receiptDivider: {
         height: 20,

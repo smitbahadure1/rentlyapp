@@ -3,6 +3,9 @@ const RAPIDAPI_KEY = '1d418a8697msh17bdf7705421537p100706jsnac9249a0a0e4';
 const RAPIDAPI_HOST = 'cars-database-with-image.p.rapidapi.com';
 const BASE_URL = `https://${RAPIDAPI_HOST}`;
 
+// Import production config
+import { logError, logInfo, logWarn, FEATURES } from '../config/production';
+
 export interface Brand {
     id: string;
     name: string;
@@ -111,71 +114,66 @@ export async function getAllPopularBrands(): Promise<Brand[]> {
 /**
  * Get a car image for a brand (using Unsplash for high-quality car photos)
  */
-function getCarImageForBrand(brandName: string): string {
-    // Map of popular brands to their Unsplash search queries
-    const carImageMap: { [key: string]: string } = {
-        // Luxury
-        'BMW': 'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=800&q=80',
-        'Mercedes-Benz': 'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=800&q=80',
-        'Audi': 'https://images.unsplash.com/photo-1610768764270-790fbec18178?w=800&q=80',
-        'Tesla': 'https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=800&q=80',
-        'Lexus': 'https://images.unsplash.com/photo-1621135802920-133df287f89c?w=800&q=80',
-        'Porsche': 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&q=80',
-        'Jaguar': 'https://images.unsplash.com/photo-1542362567-b07e54358753?w=800&q=80',
-        'Land Rover': 'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?w=800&q=80',
-        'Cadillac': 'https://images.unsplash.com/photo-1583121274602-3e2820c69888?w=800&q=80',
-        'Infiniti': 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&q=80',
+function getCarImageForBrand(brandName: string, modelName: string = ''): string {
+    const query = `${brandName} ${modelName}`.toLowerCase();
 
-        // Premium
-        'Volvo': 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?w=800&q=80',
-        'Acura': 'https://images.unsplash.com/photo-1609521263047-f8f205293f24?w=800&q=80',
-        'Genesis': 'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?w=800&q=80',
-        'Lincoln': 'https://images.unsplash.com/photo-1583121274602-3e2820c69888?w=800&q=80',
-        'Alfa Romeo': 'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=800&q=80',
-
-        // Popular brands
-        'Toyota': 'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=800&q=80',
-        'Honda': 'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=800&q=80',
-        'Hyundai': 'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?w=800&q=80',
-        'Kia': 'https://images.unsplash.com/photo-1619405399517-d7fce0f13302?w=800&q=80',
-        'Nissan': 'https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?w=800&q=80',
-        'Mazda': 'https://images.unsplash.com/photo-1617531653520-bd466c2db2e2?w=800&q=80',
-        'Volkswagen': 'https://images.unsplash.com/photo-1622353219448-46a009f0d44f?w=800&q=80',
-        'Ford': 'https://images.unsplash.com/photo-1612825173281-9a193378527e?w=800&q=80',
-        'Chevrolet': 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&q=80',
-        'Jeep': 'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=800&q=80',
-        'Subaru': 'https://images.unsplash.com/photo-1619405399517-d7fce0f13302?w=800&q=80',
-        'Mitsubishi': 'https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?w=800&q=80',
-        'Suzuki': 'https://images.unsplash.com/photo-1617531653520-bd466c2db2e2?w=800&q=80',
-        'Renault': 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?w=800&q=80',
-        'Peugeot': 'https://images.unsplash.com/photo-1610768764270-790fbec18178?w=800&q=80',
-        'Skoda': 'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?w=800&q=80',
-        'Fiat': 'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=800&q=80',
-        'Mini': 'https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=800&q=80',
-        'Dodge': 'https://images.unsplash.com/photo-1612825173281-9a193378527e?w=800&q=80',
-        'Chrysler': 'https://images.unsplash.com/photo-1583121274602-3e2820c69888?w=800&q=80',
-    };
-
-    // Return specific image if available, otherwise use a reliable fallback
-    if (carImageMap[brandName]) {
-        return carImageMap[brandName];
-    }
-
-    // Fallback to a curated set of generic luxury car images
-    const fallbackImages = [
-        'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=800&q=80',
-        'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=800&q=80',
-        'https://images.unsplash.com/photo-1610768764270-790fbec18178?w=800&q=80',
-        'https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=800&q=80',
-        'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&q=80',
-        'https://images.unsplash.com/photo-1542362567-b07e54358753?w=800&q=80',
-        'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?w=800&q=80',
-        'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=800&q=80',
+    // Large pool of curated car images across different types
+    const imagePool = [
+        'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&q=80', // Porsche 911
+        'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=800&q=80', // BMW 5
+        'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=800&q=80', // Mercedes E
+        'https://images.unsplash.com/photo-1610768764270-790fbec18178?w=800&q=80', // Audi A6
+        'https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=800&q=80', // Tesla S
+        'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?w=800&q=80', // Land Rover
+        'https://images.unsplash.com/photo-1542362567-b07e54358753?w=800&q=80', // Sport Audi
+        'https://images.unsplash.com/photo-1580274455191-1c62238fa333?w=800&q=80', // Porsche Taycan
+        'https://images.unsplash.com/photo-1541443131876-44b03de101c5?w=800&q=80', // Tesla X
+        'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&q=80', // Corvette
+        'https://images.unsplash.com/photo-1612825173281-9a193378527e?w=800&q=80', // Mustang
+        'https://images.unsplash.com/photo-1632243193741-6244456c3902?w=800&q=80', // Civic
+        'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=800&q=80', // Jeep
+        'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=800&q=80', // Luxury Sedan
+        'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=800&q=80', // Red SUV
+        'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?w=800&q=80', // Genesis
+        'https://images.unsplash.com/photo-1609521263047-f8f205293f24?w=800&q=80', // Acura
+        'https://images.unsplash.com/photo-1525609004556-c46c7d6cf0ad?w=800&q=80', // Jaguar
+        'https://images.unsplash.com/photo-1502877335905-192066c26e3d?w=800&q=80', // White Sport
+        'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=80', // Mustang Side
     ];
 
-    // Use brand name to consistently pick a fallback image
-    const index = brandName.length % fallbackImages.length;
-    return fallbackImages[index];
+    // Priority specific matches for high accuracy on top brands
+    const highAcuityMap: { [key: string]: string } = {
+        'porsche 911': imagePool[0],
+        'tesla model s': imagePool[4],
+        'jeep': imagePool[12],
+        'land rover': imagePool[5],
+        'mustang': imagePool[10],
+        'porsche sed': imagePool[7],
+    };
+
+    for (const key in highAcuityMap) {
+        if (query.includes(key)) return highAcuityMap[key];
+    }
+
+    // Body type hints
+    const isSUV = query.includes('suv') || query.includes('crossover');
+    const isSport = query.includes('sport') || query.includes('coupe') || query.includes('porsche');
+
+    // Create a unique hash based on both brand AND model name
+    let hash = 0;
+    const seed = query + brandName + modelName;
+    for (let i = 0; i < seed.length; i++) {
+        hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+        hash |= 0;
+    }
+    const index = Math.abs(hash) % imagePool.length;
+
+    // Optional: Filter index to match body type if possible (simplified heuristic)
+    // SUVs tend to be in the middle-end of our pool, sports at the start
+    if (isSUV && index < 5) return imagePool[(index + 10) % imagePool.length];
+    if (isSport && index > 10) return imagePool[index % 5];
+
+    return imagePool[index];
 }
 
 /**
@@ -190,11 +188,13 @@ export function formatBrandForRental(brand: Brand, modelName?: string): CarData 
     const transmissions = ['Automatic', 'Manual'];
     const fuelTypes = ['Petrol', 'Diesel', 'Electric', 'Hybrid'];
 
+    const finalModelName = modelName || `${brand.name} Series`;
+
     return {
         id: `${brand.id}-${modelName || 'default'}`,
         brand: brand.name,
-        model: modelName || `${brand.name} Series`,
-        image: getCarImageForBrand(brand.name), // Use actual car photos instead of logos
+        model: finalModelName,
+        image: getCarImageForBrand(brand.name, finalModelName),
         price: prices[Math.floor(Math.random() * prices.length)],
         rating: ratings[Math.floor(Math.random() * ratings.length)],
         seats: seats[Math.floor(Math.random() * seats.length)],
@@ -209,7 +209,26 @@ export function formatBrandForRental(brand: Brand, modelName?: string): CarData 
  */
 export async function getPopularCars(limit: number = 10): Promise<CarData[]> {
     try {
+        // If feature flag is enabled, always use fallback cars (more reliable)
+        if (FEATURES.USE_FALLBACK_CARS) {
+            logInfo(`🚗 Using fallback cars (${limit} cars)...`);
+            const { generateFallbackCars } = require('./fallbackCars');
+            const fallbackCars = generateFallbackCars(limit);
+            logInfo(`✅ Generated ${fallbackCars.length} fallback cars`);
+            return fallbackCars;
+        }
+
+        logInfo(`🚗 Fetching ${limit} popular cars from API...`);
         const popularBrands = await getAllPopularBrands();
+        logInfo(`📊 Got ${popularBrands.length} popular brands from API`);
+
+        if (popularBrands.length === 0) {
+            logWarn('⚠️ No brands returned from API! Using fallback cars...');
+            const { generateFallbackCars } = require('./fallbackCars');
+            const fallbackCars = generateFallbackCars(limit);
+            logInfo(`✅ Generated ${fallbackCars.length} fallback cars`);
+            return fallbackCars;
+        }
 
         // Model variants for each brand
         const modelVariants = [
@@ -221,7 +240,6 @@ export async function getPopularCars(limit: number = 10): Promise<CarData[]> {
 
         // Create multiple variants for each brand
         popularBrands.forEach((brand: Brand) => {
-            // Create 2-3 variants per brand
             const numVariants = Math.min(3, Math.ceil(limit / popularBrands.length) + 1);
 
             for (let i = 0; i < numVariants; i++) {
@@ -231,12 +249,19 @@ export async function getPopularCars(limit: number = 10): Promise<CarData[]> {
             }
         });
 
-        // Shuffle and return the requested number
+        logInfo(`✅ Generated ${allCars.length} total cars`);
+
         const shuffled = allCars.sort(() => Math.random() - 0.5);
-        return shuffled.slice(0, limit);
+        const result = shuffled.slice(0, limit);
+        logInfo(`🎯 Returning ${result.length} cars (requested: ${limit})`);
+        return result;
     } catch (error) {
-        console.error('Error fetching popular cars:', error);
-        return [];
+        logError('❌ Error fetching popular cars:', error);
+        // Fallback to generated cars on any error
+        const { generateFallbackCars } = require('./fallbackCars');
+        const fallbackCars = generateFallbackCars(limit);
+        logInfo(`🔄 Using ${fallbackCars.length} fallback cars due to error`);
+        return fallbackCars;
     }
 }
 
