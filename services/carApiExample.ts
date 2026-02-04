@@ -6,47 +6,48 @@
  */
 
 import { useState, useEffect } from 'react';
-import { searchCars, formatCarForApp, type CarData } from '@/services/carApi';
+import { searchCarsByBrand, type CarData } from '@/services/carApi';
 
 // Example 1: Fetch cars on component mount
 export function useCarData() {
-    const [cars, setCars] = useState<CarData[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+  const [cars, setCars] = useState<CarData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        async function fetchCars() {
-            try {
-                setLoading(true);
+  useEffect(() => {
+    async function fetchCars() {
+      try {
+        setLoading(true);
 
-                // Fetch luxury cars from different brands
-                const bmwCars = await searchCars({ make: 'BMW', limit: 3 });
-                const mercedesCars = await searchCars({ make: 'Mercedes-Benz', limit: 2 });
-                const audiCars = await searchCars({ make: 'Audi', limit: 2 });
-                const teslaCars = await searchCars({ make: 'Tesla', limit: 1 });
+        // Fetch luxury cars from different brands
+        // Note: searchCarsByBrand returns all matches, so we slice to get the desired limit
+        const bmwCars = (await searchCarsByBrand('BMW')).slice(0, 3);
+        const mercedesCars = (await searchCarsByBrand('Mercedes-Benz')).slice(0, 2);
+        const audiCars = (await searchCarsByBrand('Audi')).slice(0, 2);
+        const teslaCars = (await searchCarsByBrand('Tesla')).slice(0, 1);
 
-                // Combine and format all cars
-                const allCars = [
-                    ...bmwCars,
-                    ...mercedesCars,
-                    ...audiCars,
-                    ...teslaCars,
-                ].map(formatCarForApp);
+        // Combine all cars
+        const allCars = [
+          ...bmwCars,
+          ...mercedesCars,
+          ...audiCars,
+          ...teslaCars,
+        ];
 
-                setCars(allCars);
-                setError(null);
-            } catch (err) {
-                console.error('Error fetching cars:', err);
-                setError('Failed to load cars');
-            } finally {
-                setLoading(false);
-            }
-        }
+        setCars(allCars);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching cars:', err);
+        setError('Failed to load cars');
+      } finally {
+        setLoading(false);
+      }
+    }
 
-        fetchCars();
-    }, []);
+    fetchCars();
+  }, []);
 
-    return { cars, loading, error };
+  return { cars, loading, error };
 }
 
 // Example 2: How to modify your home.tsx
@@ -110,31 +111,28 @@ export default function HomeScreen() {
 
 // Example 3: Search cars by query
 export async function searchCarsByQuery(query: string): Promise<CarData[]> {
-    try {
-        const results = await searchCars({
-            make: query,
-            limit: 10
-        });
-
-        return results.map(formatCarForApp);
-    } catch (error) {
-        console.error('Search error:', error);
-        return [];
-    }
+  try {
+    const results = await searchCarsByBrand(query);
+    return results.slice(0, 10);
+  } catch (error) {
+    console.error('Search error:', error);
+    return [];
+  }
 }
 
 // Example 4: Get car by specific make and model
 export async function getSpecificCar(make: string, model: string): Promise<CarData | null> {
-    try {
-        const results = await searchCars({ make, model, limit: 1 });
+  try {
+    const results = await searchCarsByBrand(make);
+    const match = results.find(car => car.model.toLowerCase().includes(model.toLowerCase()));
 
-        if (results.length > 0) {
-            return formatCarForApp(results[0]);
-        }
-
-        return null;
-    } catch (error) {
-        console.error('Error fetching specific car:', error);
-        return null;
+    if (match) {
+      return match;
     }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching specific car:', error);
+    return null;
+  }
 }

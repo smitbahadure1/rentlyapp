@@ -1,4 +1,4 @@
-import { getCarMakes, getCarModels, searchCars, getLuxuryCars } from './carApi';
+import { getCarBrands, getCarModels, searchCarsByBrand, getPopularCars } from './carApi';
 
 /**
  * Test the RapidAPI integration
@@ -9,28 +9,36 @@ export async function testCarAPI() {
     try {
         // Test 1: Get car makes
         console.log('1️⃣ Fetching car makes...');
-        const makes = await getCarMakes();
+        const makes = await getCarBrands();
         console.log(`✅ Found ${makes.length} car makes`);
         console.log('Sample makes:', makes.slice(0, 5));
         console.log('');
 
         // Test 2: Get models for BMW
         console.log('2️⃣ Fetching BMW models...');
-        const bmwModels = await getCarModels('BMW');
-        console.log(`✅ Found ${bmwModels.length} BMW models`);
-        console.log('Sample models:', bmwModels.slice(0, 5));
+        const bmw = makes.find(m => m.name === 'BMW');
+        if (bmw) {
+            const bmwModels = await getCarModels(bmw.id);
+            console.log(`✅ Found ${bmwModels.length} BMW models`);
+            console.log('Sample models:', bmwModels.slice(0, 5));
+        } else {
+            console.log('⚠️ Could not find BMW brand ID to test models');
+        }
         console.log('');
 
         // Test 3: Search for luxury cars
         console.log('3️⃣ Searching for luxury cars...');
-        const luxuryCars = await searchCars({ make: 'BMW', limit: 3 });
+        const luxuryCarsResults = await searchCarsByBrand('BMW');
+        const luxuryCars = luxuryCarsResults.slice(0, 3);
         console.log(`✅ Found ${luxuryCars.length} BMW cars`);
-        console.log('Sample car:', luxuryCars[0]);
+        if (luxuryCars.length > 0) {
+            console.log('Sample car:', luxuryCars[0]);
+        }
         console.log('');
 
         // Test 4: Get popular luxury cars
         console.log('4️⃣ Fetching popular luxury cars...');
-        const popularCars = await getLuxuryCars();
+        const popularCars = await getPopularCars();
         console.log(`✅ Found ${popularCars.length} luxury cars`);
         console.log('');
 
