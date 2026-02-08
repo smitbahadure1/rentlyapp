@@ -1,12 +1,13 @@
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Dimensions, Platform, ActivityIndicator } from 'react-native';
-import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { StatusBar } from 'expo-status-bar';
-import { useState, useEffect } from 'react';
-import { getPopularCars, type CarData } from '@/services/carApi';
-import { useRouter } from 'expo-router';
+import CarCard from '@/components/CarCard';
+import { getPopularCars } from '@/services/carApi';
 import { storeCarData } from '@/services/carDataStore';
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 
 
@@ -194,54 +195,14 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.feedContainer}>
               {cars.map((car) => (
-                <TouchableOpacity
+                <CarCard
                   key={car.id}
-                  style={styles.feedCard}
-                  activeOpacity={0.9}
+                  car={car}
                   onPress={() => {
                     storeCarData(car.id, car);
                     router.push(`/car/${car.id}` as any);
                   }}
-                >
-                  <View style={styles.feedImageContainer}>
-                    <Image source={{ uri: car.image }} style={styles.feedImage} contentFit="cover" />
-                    <View style={styles.feedBadge}>
-                      <Ionicons name="flash" size={12} color="#FFF" />
-                      <Text style={styles.feedBadgeText}>Popular</Text>
-                    </View>
-                    <TouchableOpacity style={styles.likeButton}>
-                      <Ionicons name="heart-outline" size={20} color="#FFF" />
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.feedInfo}>
-                    <View style={styles.feedHeader}>
-                      <Text style={styles.feedTitle}>{car.brand} {car.model}</Text>
-                      <View style={styles.ratingTag}>
-                        <Ionicons name="star" size={12} color="#000" />
-                        <Text style={styles.ratingNum}>{car.rating?.toFixed(1) || '4.5'}</Text>
-                      </View>
-                    </View>
-
-                    <Text style={styles.feedSubtitle}>{car.transmission} • {car.seats} Seats • {car.fuelType || car.fuel_type}</Text>
-
-                    <View style={styles.feedFooter}>
-                      <View>
-                        <Text style={styles.feedPrice}>₹ {car.price}k<Text style={styles.feedPriceUnit}>/day</Text></Text>
-                        <Text style={styles.feedTotal}>Free cancellation</Text>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.bookBtn}
-                        onPress={() => {
-                          storeCarData(car.id, car);
-                          router.push(`/car/${car.id}` as any);
-                        }}
-                      >
-                        <Text style={styles.bookBtnText}>Book Now</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </TouchableOpacity>
+                />
               ))}
             </View>
           )}

@@ -1,16 +1,18 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Dimensions } from 'react-native';
-import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
-import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
 import { getCarData } from '@/services/carDataStore';
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
+import { Dimensions, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
 
 export default function CarDetailsScreen() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
+    const [imageError, setImageError] = useState(false);
 
     // Get car data from store
     const storedCar = getCarData(id as string);
@@ -50,7 +52,20 @@ export default function CarDetailsScreen() {
 
             {/* Hero Image Section */}
             <View style={styles.imageContainer}>
-                <Image source={{ uri: car.image }} style={styles.heroImage} contentFit="cover" />
+                {car.image && !imageError ? (
+                    <Image
+                        source={{ uri: car.image }}
+                        style={styles.heroImage}
+                        contentFit="cover"
+                        transition={200}
+                        onError={() => setImageError(true)}
+                    />
+                ) : (
+                    <View style={[styles.heroImage, styles.placeholderContainer]}>
+                        <Ionicons name="car-sport-outline" size={80} color="#fff" />
+                        <Text style={styles.placeholderText}>No Image Available</Text>
+                    </View>
+                )}
                 <View style={styles.imageOverlay} />
 
                 {/* Header Actions */}
@@ -133,7 +148,7 @@ export default function CarDetailsScreen() {
             <View style={styles.bottomBar}>
                 <View style={styles.priceContainer}>
                     <Text style={styles.priceLabel}>Daily Price</Text>
-                    <Text style={styles.priceValue}>₹{car.price}<Text style={styles.priceUnit}>/day</Text></Text>
+                    <Text style={styles.priceValue}>{car.price}<Text style={styles.priceUnit}>/day</Text></Text>
                 </View>
                 <TouchableOpacity style={styles.bookButton} onPress={() => router.push(`/checkout/${id}`)}>
                     <Text style={styles.bookButtonText}>Book Now</Text>
@@ -158,6 +173,17 @@ const styles = StyleSheet.create({
     heroImage: {
         width: '100%',
         height: '100%',
+    },
+    placeholderContainer: {
+        backgroundColor: '#1C1C1E',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    placeholderText: {
+        color: '#6B7280',
+        fontFamily: 'Inter_500Medium',
+        marginTop: 12,
+        fontSize: 16,
     },
     imageOverlay: {
         ...StyleSheet.absoluteFillObject,
@@ -187,7 +213,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.2)', // Glassy effect
         justifyContent: 'center',
         alignItems: 'center',
-        backdropFilter: 'blur(10px)', // Works on iOS/Web content usually
+        // backdropFilter: 'blur(10px)', // Works on iOS/Web content usually
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.3)',
     },

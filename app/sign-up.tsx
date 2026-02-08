@@ -1,12 +1,12 @@
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import { useSignUp } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSignUp } from '@clerk/clerk-expo';
+import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SignUpScreen() {
     const { isLoaded, signUp, setActive } = useSignUp();
@@ -23,6 +23,7 @@ export default function SignUpScreen() {
         if (!isLoaded) return;
         setIsLoading(true);
 
+
         try {
             await signUp.create({
                 emailAddress,
@@ -35,8 +36,9 @@ export default function SignUpScreen() {
             // Display verification form
             setPendingVerification(true);
         } catch (err: any) {
-            console.error(JSON.stringify(err, null, 2));
-            Alert.alert("Sign Up Failed", err.errors?.[0]?.longMessage || "Check your details and try again.");
+            console.log(JSON.stringify(err, null, 2));
+            const errorMsg = err.errors ? err.errors.map((e: any) => e.longMessage).join('\n') : "Check your details and try again.";
+            Alert.alert("Sign Up Failed", errorMsg);
         } finally {
             setIsLoading(false);
         }
@@ -46,6 +48,7 @@ export default function SignUpScreen() {
     const onPressVerify = async () => {
         if (!isLoaded) return;
         setIsLoading(true);
+
 
         try {
             const completeSignUp = await signUp.attemptEmailAddressVerification({
@@ -60,8 +63,9 @@ export default function SignUpScreen() {
                 Alert.alert("Error", "Completion status not valid.");
             }
         } catch (err: any) {
-            console.error(JSON.stringify(err, null, 2));
-            Alert.alert("Verification Failed", err.errors?.[0]?.longMessage || "Incorrect code.");
+            console.log(JSON.stringify(err, null, 2));
+            const errorMsg = err.errors ? err.errors.map((e: any) => e.longMessage).join('\n') : "Incorrect code.";
+            Alert.alert("Verification Failed", errorMsg);
         } finally {
             setIsLoading(false);
         }
@@ -132,6 +136,8 @@ export default function SignUpScreen() {
                                 </View>
                             </View>
 
+
+
                             <TouchableOpacity
                                 style={[styles.signInButton, isLoading && { opacity: 0.7 }]}
                                 onPress={onSignUpPress}
@@ -165,6 +171,8 @@ export default function SignUpScreen() {
                                     <Text style={styles.helperText}>Enter the code sent to your email.</Text>
                                 </View>
                             </View>
+
+
 
                             <TouchableOpacity
                                 style={[styles.signInButton, isLoading && { opacity: 0.7 }]}
@@ -314,4 +322,21 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: 'Inter_700Bold',
     },
+    errorContainer: {
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(239, 68, 68, 0.5)',
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 24,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    errorText: {
+        color: '#EF4444',
+        fontSize: 12,
+        fontFamily: 'Inter_500Medium',
+        flex: 1,
+    }
 });
