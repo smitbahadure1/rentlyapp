@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, DimensionValue, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
@@ -76,24 +76,49 @@ export default function AccountScreen() {
                         onPress={() => router.push('/settings/membership' as any)}
                     >
                         <LinearGradient
-                            colors={['#2A2A2E', '#141414', '#000']}
+                            colors={['#2A2A2E', '#141414', '#080808']}
                             start={{ x: 0, y: 0 }}
-                            end={{ x: 0.8, y: 1 }}
+                            end={{ x: 0.9, y: 0.8 }}
                             style={styles.membershipCard}
                         >
-                            {/* Decorative Elements */}
-                            <View style={styles.cardPatternCircle} />
-                            <View style={styles.cardPatternLine} />
+                            {/* World Map Texture (Simulated with random dots or simple circles) */}
+                            <View style={styles.worldMapOverlay}>
+                                {Array.from({ length: 15 }).map((_, i) => (
+                                    <View
+                                        key={i}
+                                        style={[
+                                            styles.mapDot,
+                                            {
+                                                top: (Math.random() * 100 + '%') as DimensionValue,
+                                                left: (Math.random() * 100 + '%') as DimensionValue,
+                                                opacity: Math.random() * 0.3
+                                            }
+                                        ]}
+                                    />
+                                ))}
+                            </View>
+
+                            <View style={styles.cardShine} />
 
                             {/* Card Content */}
                             <View style={styles.cardContent}>
                                 <View style={styles.cardHeader}>
-                                    {/* Chip Icon */}
-                                    <View style={styles.chipIcon}>
+                                    {/* Metallic Chip */}
+                                    <LinearGradient
+                                        colors={['#FCD34D', '#D97706', '#F59E0B']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={styles.chipIcon}
+                                    >
                                         <View style={styles.chipLine} />
-                                        <View style={[styles.chipLine, { left: 8 }]} />
-                                        <View style={[styles.chipLine, { left: 16 }]} />
-                                        <View style={[styles.chipLine, { top: '50%', height: 1, width: '100%' }]} />
+                                        <View style={[styles.chipLine, { left: 10 }]} />
+                                        <View style={[styles.chipLine, { left: 20 }]} />
+                                        <View style={[styles.chipLine, { top: '50%', height: 1, width: '100%', left: 0 }]} />
+                                    </LinearGradient>
+
+                                    {/* Contactless Symbol */}
+                                    <View style={{ position: 'absolute', left: 60, top: 4 }}>
+                                        <Ionicons name="wifi" size={24} color="rgba(255,255,255,0.3)" style={{ transform: [{ rotate: '90deg' }] }} />
                                     </View>
 
                                     <View style={styles.memberBadge}>
@@ -102,25 +127,28 @@ export default function AccountScreen() {
                                 </View>
 
                                 <View style={styles.middleSection}>
-                                    <View style={styles.avatarContainer}>
-                                        {user?.imageUrl ? (
-                                            <Image
-                                                source={{ uri: user.imageUrl }}
-                                                style={styles.avatarImage}
-                                                contentFit="cover"
-                                                transition={200}
-                                            />
-                                        ) : (
-                                            <View style={[styles.avatarImage, { backgroundColor: '#333', justifyContent: 'center', alignItems: 'center' }]}>
-                                                <Text style={{ color: '#FFF', fontSize: 18, fontWeight: 'bold' }}>
-                                                    {displayName.charAt(0)}
-                                                </Text>
-                                            </View>
-                                        )}
+                                    <View style={styles.avatarBorder}>
+                                        <View style={styles.avatarContainer}>
+                                            {user?.imageUrl ? (
+                                                <Image
+                                                    source={{ uri: user.imageUrl }}
+                                                    style={styles.avatarImage}
+                                                    contentFit="cover"
+                                                    transition={200}
+                                                />
+                                            ) : (
+                                                <View style={[styles.avatarImage, { backgroundColor: '#333', justifyContent: 'center', alignItems: 'center' }]}>
+                                                    <Text style={{ color: '#FFF', fontSize: 20, fontWeight: 'bold' }}>
+                                                        {displayName.charAt(0)}
+                                                    </Text>
+                                                </View>
+                                            )}
+                                        </View>
                                     </View>
-                                    <View style={{ marginLeft: 12 }}>
+                                    <View style={{ marginLeft: 16 }}>
                                         <Text style={styles.userName}>{displayName}</Text>
-                                        <Text style={styles.userSince}>Member since {user?.createdAt ? new Date(user.createdAt).getFullYear() : '2025'}</Text>
+                                        <Text style={styles.cardNumber}>•••• •••• •••• 4290</Text>
+                                        <Text style={styles.userSince}>VALID THRU 12/28</Text>
                                     </View>
                                 </View>
 
@@ -130,12 +158,26 @@ export default function AccountScreen() {
                                             <Text style={styles.pointsLabel}>RENTLY POINTS</Text>
                                             <Text style={styles.pointsValue}>12,450</Text>
                                         </View>
-                                        {/* Progress Bar */}
                                         <View style={styles.progressBarBg}>
-                                            <View style={[styles.progressBarFill, { width: '75%' }]} />
+                                            <LinearGradient
+                                                colors={['#FFF', '#9CA3AF']}
+                                                start={{ x: 0, y: 0 }}
+                                                end={{ x: 1, y: 0 }}
+                                                style={[styles.progressBarFill, { width: '75%' }]}
+                                            />
                                         </View>
-                                        <Text style={styles.progressText}>3,550 pts to Diamond</Text>
+                                        <View style={styles.statusRow}>
+                                            <Text style={styles.progressText}>Diamond Status</Text>
+                                            <Text style={styles.progressText}>75%</Text>
+                                        </View>
                                     </View>
+                                    {/* Holographic Seal */}
+                                    <LinearGradient
+                                        colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0)']}
+                                        style={styles.hologramSeal}
+                                    >
+                                        <Ionicons name="ribbon" size={24} color="rgba(255,255,255,0.6)" />
+                                    </LinearGradient>
                                 </View>
                             </View>
                         </LinearGradient>
@@ -236,63 +278,65 @@ const styles = StyleSheet.create({
         marginBottom: 32,
     },
     membershipCard: {
-        height: 220,
+        height: 240, // Increased height for better spacing
         borderRadius: 24,
         overflow: 'hidden',
         position: 'relative',
         borderWidth: 1,
         borderColor: '#333',
     },
-    cardPatternCircle: {
-        position: 'absolute',
-        top: -50,
-        right: -50,
-        width: 250,
-        height: 250,
-        borderRadius: 125,
-        borderWidth: 40,
-        borderColor: 'rgba(255,255,255,0.03)',
+    worldMapOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        opacity: 0.5,
     },
-    cardPatternLine: {
+    mapDot: {
         position: 'absolute',
-        bottom: 0,
-        left: 0,
-        width: '100%',
-        height: '40%',
-        backgroundColor: 'rgba(255,255,255,0.02)',
-        transform: [{ skewY: '-10deg' }],
+        width: 2,
+        height: 2,
+        borderRadius: 1,
+        backgroundColor: '#FFF',
+    },
+    cardShine: {
+        position: 'absolute',
+        top: -100,
+        left: -100,
+        width: 300,
+        height: 300,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        transform: [{ rotate: '45deg' }],
     },
     cardContent: {
         flex: 1,
-        padding: 24,
+        padding: 22, // Increased padding
         justifyContent: 'space-between',
     },
     cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
+        position: 'relative',
     },
     chipIcon: {
-        width: 40,
-        height: 30,
-        borderRadius: 6,
-        backgroundColor: '#D4AF37', // Gold-ish
+        width: 38, // Slightly larger
+        height: 28,
+        borderRadius: 5,
         overflow: 'hidden',
         position: 'relative',
-        opacity: 0.9,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
     },
     chipLine: {
         position: 'absolute',
         top: 0,
         bottom: 0,
         width: 1,
-        backgroundColor: 'rgba(0,0,0,0.2)',
+        backgroundColor: 'rgba(0,0,0,0.15)',
     },
     memberBadge: {
         backgroundColor: 'rgba(255,255,255,0.1)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 12,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 8,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.2)',
     },
@@ -305,13 +349,23 @@ const styles = StyleSheet.create({
     middleSection: {
         flexDirection: 'row',
         alignItems: 'center',
+        marginTop: 16, // Added spacing from top
+    },
+    avatarBorder: {
+        width: 52, // Slightly larger
+        height: 52,
+        borderRadius: 26,
+        padding: 2,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.3)',
     },
     avatarContainer: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        borderWidth: 2,
-        borderColor: '#FFF',
+        width: '100%',
+        height: '100%',
+        borderRadius: 26,
         overflow: 'hidden',
     },
     avatarImage: {
@@ -319,24 +373,34 @@ const styles = StyleSheet.create({
         height: '100%',
     },
     userName: {
-        fontSize: 18,
+        fontSize: 17, // Balanced
         fontFamily: 'Inter_700Bold',
         color: '#FFF',
         marginBottom: 2,
     },
-    userSince: {
+    cardNumber: {
+        color: '#9CA3AF',
         fontSize: 12,
+        letterSpacing: 2,
+        fontFamily: 'Inter_500Medium',
+        marginVertical: 3,
+    },
+    userSince: {
+        fontSize: 10,
         color: '#9CA3AF',
         fontFamily: 'Inter_500Medium',
     },
     cardFooter: {
-        marginTop: 10,
+        marginTop: 16, // Added spacing from middle section
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
     },
     pointsRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: 6,
     },
     pointsLabel: {
         fontSize: 10,
@@ -345,35 +409,53 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
     pointsValue: {
-        fontSize: 16,
+        fontSize: 14,
         fontFamily: 'Inter_800ExtraBold',
         color: '#FFF',
     },
+
     progressBarBg: {
         height: 4,
         backgroundColor: 'rgba(255,255,255,0.2)',
         borderRadius: 2,
         width: '100%',
-        marginBottom: 6,
+        marginBottom: 8, // Increased spacing
     },
     progressBarFill: {
         height: '100%',
         backgroundColor: '#FFF',
         borderRadius: 2,
     },
+    statusRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
     progressText: {
         fontSize: 10,
         color: '#9CA3AF',
         fontFamily: 'Inter_500Medium',
     },
+    hologramSeal: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 14,
+    },
+    cardPatternCircle: { display: 'none' },
+    cardPatternLine: { display: 'none' },
     statsGrid: {
         flexDirection: 'row',
         alignItems: 'center',
         marginHorizontal: 20,
         backgroundColor: '#1C1C1E',
         borderRadius: 24,
-        paddingVertical: 20,
-        marginBottom: 32,
+        paddingVertical: 24, // Increased breathing space
+        marginBottom: 36,
         borderWidth: 1,
         borderColor: '#333',
     },
