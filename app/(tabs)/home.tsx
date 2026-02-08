@@ -42,9 +42,12 @@ export default function HomeScreen() {
         console.log(`📊 Loaded ${apiCars?.length || 0} cars from API`);
 
         // Prioritize Supabase cars but append API cars for high density
-        const combinedCars = [...(supabaseCars || []), ...(apiCars || [])];
-        console.log(`✅ Total cars to display: ${combinedCars.length}`);
-        setCars(combinedCars);
+        const rawList = [...(supabaseCars || []), ...(apiCars || [])];
+        // Deduplicate by ID to prevent key collision errors
+        const uniqueCars = Array.from(new Map(rawList.map(item => [item.id, item])).values());
+
+        console.log(`✅ Total unique cars to display: ${uniqueCars.length}`);
+        setCars(uniqueCars);
       } catch (err) {
         console.error('Error fetching cars:', err);
         setError('Failed to load cars');

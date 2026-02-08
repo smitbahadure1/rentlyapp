@@ -1,16 +1,16 @@
-import { View, Text, StyleSheet, Dimensions, TextInput, TouchableOpacity, ScrollView, FlatList, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { StatusBar } from 'expo-status-bar';
-import { Image } from 'expo-image';
-import { useState, useEffect } from 'react';
-import { getPopularCars, searchCarsByBrand, type CarData } from '@/services/carApi';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { getPopularCars } from '@/services/carApi';
 import { storeCarData } from '@/services/carDataStore';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
 // Mock Data
+import ExploreCarCard from '@/components/ExploreCarCard';
 const POPULAR_SEARCHES = ['SUV', 'Electric', 'Luxury', '7 Seater', 'Under $50k'];
 
 
@@ -41,8 +41,10 @@ export default function ExploreScreen() {
           getPopularCars(80)
         ]);
 
-        const combined = [...(supabaseCars || []), ...(apiCars || [])];
-        setCars(combined);
+        const rawList = [...(supabaseCars || []), ...(apiCars || [])];
+        // Deduplicate by ID
+        const uniqueCars = Array.from(new Map(rawList.map(item => [item.id, item])).values());
+        setCars(uniqueCars);
       } catch (err) {
         console.error('Error fetching cars:', err);
         setError('Failed to load cars');
@@ -141,56 +143,14 @@ export default function ExploreScreen() {
             </View>
           ) : (
             filteredCars.map((car) => (
-              <TouchableOpacity
+              <ExploreCarCard
                 key={car.id}
-                style={styles.feedCard}
-                activeOpacity={0.9}
+                car={car}
                 onPress={() => {
                   storeCarData(car.id, car);
                   router.push(`/car/${car.id}`);
                 }}
-              >
-                <View style={styles.feedImageContainer}>
-                  <Image source={{ uri: car.image }} style={styles.feedImage} contentFit="cover" />
-                  <View style={styles.feedBadge}>
-                    <Ionicons name="navigate-circle" size={14} color="#FFF" />
-                    <Text style={styles.feedBadgeText}>{(Math.random() * 10 + 1).toFixed(1)} km</Text>
-                  </View>
-                  <TouchableOpacity style={styles.likeButton}>
-                    <Ionicons name="heart-outline" size={20} color="#FFF" />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.feedInfo}>
-                  <View style={styles.feedHeader}>
-                    <Text style={styles.feedTitle}>{car.brand} {car.model}</Text>
-                    <View style={styles.ratingTag}>
-                      <Ionicons name="star" size={12} color="#000" />
-                      <Text style={styles.ratingNum}>{car.rating?.toFixed(1) || '4.5'}</Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.feedSubtitle}>
-                    {Math.floor(Math.random() * 200 + 50)} trips • {car.transmission} • {car.seats} Seats
-                  </Text>
-
-                  <View style={styles.feedFooter}>
-                    <View>
-                      <Text style={styles.feedPrice}>₹{car.price}k<Text style={styles.feedPriceUnit}>/day</Text></Text>
-                      <Text style={styles.feedTotal}>₹{(car.price || 0) * 4}k est. total</Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.bookBtn}
-                      onPress={() => {
-                        storeCarData(car.id, car);
-                        router.push(`/checkout/${car.id}`);
-                      }}
-                    >
-                      <Text style={styles.bookBtnText}>Book Now</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </TouchableOpacity>
+              />
             ))
           )}
         </View>

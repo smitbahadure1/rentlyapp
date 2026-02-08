@@ -1,11 +1,10 @@
-import { Tabs, useRouter, usePathname } from 'expo-router';
-import React, { useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { Tabs, usePathname, useRouter } from 'expo-router';
+import React, { useEffect } from 'react';
 import { BackHandler, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
-import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
@@ -36,29 +35,24 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#FFFFFF',
-        tabBarInactiveTintColor: '#6B7280',
+        tabBarInactiveTintColor: '#666666',
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarStyle: {
-          height: Platform.OS === 'ios' ? 88 + insets.bottom : 70 + insets.bottom,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 12,
-          paddingTop: 12,
-          borderTopWidth: 1,
-          borderTopColor: '#1C1C1E',
-          elevation: 0,
-          shadowOpacity: 0,
           backgroundColor: '#000000',
+          borderTopWidth: 0.5,
+          borderTopColor: '#333',
+          height: Platform.OS === 'ios' ? 88 + insets.bottom : 70 + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
+          paddingTop: 8,
+          elevation: 0,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '700',
-          fontFamily: 'System',
-          letterSpacing: 0.5,
-          marginTop: 4,
+          fontSize: 10,
+          fontWeight: '600',
+          marginTop: 2,
+          fontFamily: 'Inter_600SemiBold', // Assuming you have this font, otherwise system font
         },
-        tabBarIconStyle: {
-          marginTop: 4,
-        }
       }}>
       <Tabs.Screen
         name="home"

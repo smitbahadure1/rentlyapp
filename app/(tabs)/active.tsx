@@ -1,12 +1,12 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
-import { Image } from 'expo-image';
-import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 import { storeCarData } from '@/services/carDataStore';
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -88,9 +88,9 @@ export default function ActiveTabScreen() {
 
             <SafeAreaView style={styles.header} edges={['top']}>
                 <View style={styles.headerRow}>
-                    <Text style={styles.headerTitle}>Control Centre</Text>
-                    <TouchableOpacity style={styles.sosBadge}>
-                        <Text style={styles.sosText}>sos</Text>
+                    <Text style={styles.headerTitle}>Active Trip</Text>
+                    <TouchableOpacity style={styles.iconBtn}>
+                        <Ionicons name="warning-outline" size={24} color="#EF4444" />
                     </TouchableOpacity>
                 </View>
             </SafeAreaView>
@@ -215,40 +215,31 @@ const styles = StyleSheet.create({
     },
     header: {
         paddingHorizontal: 24,
-        paddingBottom: 16,
+        paddingTop: 10,
+        paddingBottom: 20,
     },
     headerRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
-    headerSubtitle: {
-        fontSize: 12,
-        fontFamily: 'Inter_700Bold',
-        color: '#6B7280',
-        letterSpacing: 1,
-    },
     headerTitle: {
-        fontSize: 48,
-        fontFamily: 'Inter_900Black',
+        fontSize: 34,
+        fontFamily: 'Inter_800ExtraBold',
         color: '#FFF',
-        letterSpacing: -2,
     },
-    sosBadge: {
-        backgroundColor: '#F34444',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 24,
-    },
-    sosText: {
-        color: '#FFF',
-        fontFamily: 'Inter_900Black',
-        fontSize: 22,
-        letterSpacing: -0.5,
+    iconBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#1C1C1E',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#333',
     },
     scrollContent: {
         paddingBottom: 100,
-        paddingTop: 10,
     },
     activeCard: {
         backgroundColor: '#1E1E1E',
