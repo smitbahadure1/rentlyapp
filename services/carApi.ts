@@ -4,7 +4,7 @@ const RAPIDAPI_HOST = 'cars-database-with-image.p.rapidapi.com';
 const BASE_URL = `https://${RAPIDAPI_HOST}`;
 
 // Import production config
-import { logError, logInfo, logWarn, FEATURES } from '../config/production';
+import { FEATURES, logError, logInfo, logWarn } from '../config/production';
 
 export interface Brand {
     id: string;
@@ -114,66 +114,143 @@ export async function getAllPopularBrands(): Promise<Brand[]> {
 /**
  * Get a car image for a brand (using Unsplash for high-quality car photos)
  */
-function getCarImageForBrand(brandName: string, modelName: string = ''): string {
+/**
+ * Get a car image for a brand (using Unsplash for high-quality car photos)
+ */
+export function getCarImageForBrand(brandName: string, modelName: string = ''): string {
     const query = `${brandName} ${modelName}`.toLowerCase();
+    const brandLower = brandName.toLowerCase();
 
-    // Large pool of curated car images across different types
-    const imagePool = [
-        'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&q=80', // Porsche 911
-        'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=800&q=80', // BMW 5
-        'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=800&q=80', // Mercedes E
-        'https://images.unsplash.com/photo-1610768764270-790fbec18178?w=800&q=80', // Audi A6
-        'https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=800&q=80', // Tesla S
-        'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?w=800&q=80', // Land Rover
-        'https://images.unsplash.com/photo-1542362567-b07e54358753?w=800&q=80', // Sport Audi
-        'https://images.unsplash.com/photo-1580274455191-1c62238fa333?w=800&q=80', // Porsche Taycan
-        'https://images.unsplash.com/photo-1541443131876-44b03de101c5?w=800&q=80', // Tesla X
-        'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&q=80', // Corvette
-        'https://images.unsplash.com/photo-1612825173281-9a193378527e?w=800&q=80', // Mustang
-        'https://images.unsplash.com/photo-1632243193741-6244456c3902?w=800&q=80', // Civic
-        'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=800&q=80', // Jeep
-        'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=800&q=80', // Luxury Sedan
-        'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=800&q=80', // Red SUV
-        'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?w=800&q=80', // Genesis
-        'https://images.unsplash.com/photo-1609521263047-f8f205293f24?w=800&q=80', // Acura
-        'https://images.unsplash.com/photo-1525609004556-c46c7d6cf0ad?w=800&q=80', // Jaguar
-        'https://images.unsplash.com/photo-1502877335905-192066c26e3d?w=800&q=80', // White Sport
-        'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=80', // Mustang Side
-    ];
-
-    // Priority specific matches for high accuracy on top brands
-    const highAcuityMap: { [key: string]: string } = {
-        'porsche 911': imagePool[0],
-        'tesla model s': imagePool[4],
-        'jeep': imagePool[12],
-        'land rover': imagePool[5],
-        'mustang': imagePool[10],
-        'porsche sed': imagePool[7],
+    // Comprehensive Brand Map
+    const BRAND_IMAGES: { [key: string]: string[] } = {
+        'porsche': [
+            'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&q=80', // 911
+            'https://images.unsplash.com/photo-1580274455191-1c62238fa333?w=800&q=80', // Taycan
+        ],
+        'bmw': [
+            'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=800&q=80', // 5 Series
+            'https://images.unsplash.com/photo-1523983254932-c7e6571c9d60?w=800&q=80', // M4
+            'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&q=80', // X5
+        ],
+        'mercedes-benz': [
+            'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=800&q=80', // E Class
+            'https://images.unsplash.com/photo-1563720223185-11003d516935?w=800&q=80', // AMG
+            'https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?w=800&q=80', // G Wagon
+        ],
+        'mercedes': [
+            'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=800&q=80',
+            'https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?w=800&q=80',
+        ],
+        'audi': [
+            'https://images.unsplash.com/photo-1610768764270-790fbec18178?w=800&q=80', // A6
+            'https://images.unsplash.com/photo-1542362567-b07e54358753?w=800&q=80', // Sport
+            'https://images.unsplash.com/photo-1606152421811-996d5ad2b5ce?w=800&q=80', // R8
+        ],
+        'tesla': [
+            'https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=800&q=80', // S
+            'https://images.unsplash.com/photo-1541443131876-44b03de101c5?w=800&q=80', // X
+            'https://images.unsplash.com/photo-1617788138017-80ad40651399?w=800&q=80', // 3
+        ],
+        'land rover': [
+            'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?w=800&q=80', // Range Rover
+            'https://images.unsplash.com/photo-1606220838315-056192d5e927?w=800&q=80', // Defender
+        ],
+        'chevrolet': [
+            'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&q=80', // Corvette
+            'https://images.unsplash.com/photo-1619682817481-e994891cd1f5?w=800&q=80', // Camaro
+        ],
+        'ford': [
+            'https://images.unsplash.com/photo-1612825173281-9a193378527e?w=800&q=80', // Mustang
+            'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=80', // Mustang Side
+        ],
+        'honda': [
+            'https://images.unsplash.com/photo-1632243193741-6244456c3902?w=800&q=80', // Civic
+            'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=800&q=80', // Accord
+        ],
+        'toyota': [
+            'https://images.unsplash.com/photo-1590362891991-f776e747a588?w=800&q=80', // Supra
+            'https://images.unsplash.com/photo-1629897048514-34fd5dfc8a69?w=800&q=80', // Camry/Generic
+            'https://images.unsplash.com/photo-1609520505218-7421da4c3c7c?w=800&q=80', // Generic SUV
+        ],
+        'jeep': [
+            'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=800&q=80', // Wrangler/Rubicon
+            'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=800&q=80', // Cherokee
+        ],
+        'genesis': [
+            'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?w=800&q=80',
+        ],
+        'acura': [
+            'https://images.unsplash.com/photo-1609521263047-f8f205293f24?w=800&q=80',
+        ],
+        'jaguar': [
+            'https://images.unsplash.com/photo-1525609004556-c46c7d6cf0ad?w=800&q=80', // F-Type
+            'https://images.unsplash.com/photo-1626847037657-fd3622613ce3?w=800&q=80', // F-Pace
+        ],
+        'lexus': [
+            'https://images.unsplash.com/photo-1606152421811-996d5ad2b5ce?w=800&q=80', // LC (Uses Audi R8 placeholder if needed, looking for better)
+            // Using generic luxury:
+            'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=800&q=80',
+        ],
+        'volvo': [
+            'https://images.unsplash.com/photo-1617788138017-80ad40651399?w=800&q=80', // Generic Euro style
+        ],
+        'hyundai': [
+            'https://images.unsplash.com/photo-1621007947382-f3f502173340?w=800&q=80', // Sonata/Elantra style
+        ],
+        'nissan': [
+            'https://images.unsplash.com/photo-1543465077-db45d34b88a5?w=800&q=80', // GTR
+        ],
+        'ferrari': [
+            'https://images.unsplash.com/photo-1592198084033-aade902d1aae?w=800&q=80',
+        ],
+        'lamborghini': [
+            'https://images.unsplash.com/photo-1519245659620-e859806a8d3b?w=800&q=80',
+        ],
+        'rolls royce': [
+            'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&q=80',
+        ]
     };
 
-    for (const key in highAcuityMap) {
-        if (query.includes(key)) return highAcuityMap[key];
+    // Generic fallbacks by body type
+    const GENERIC_SUV = 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=800&q=80';
+    const GENERIC_SEDAN = 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=800&q=80';
+    const GENERIC_SPORT = 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&q=80';
+
+    // Check for direct brand match
+    if (BRAND_IMAGES[brandLower]) {
+        const images = BRAND_IMAGES[brandLower];
+        // Determistic random based on model length to vary images for same brand but keep consistent for same model
+        const index = modelName.length % images.length;
+        return images[index];
     }
 
-    // Body type hints
-    const isSUV = query.includes('suv') || query.includes('crossover');
-    const isSport = query.includes('sport') || query.includes('coupe') || query.includes('porsche');
+    // Check for partial brand match in our keys
+    const matchedBrandKey = Object.keys(BRAND_IMAGES).find(key => brandLower.includes(key) || key.includes(brandLower));
+    if (matchedBrandKey) {
+        const images = BRAND_IMAGES[matchedBrandKey];
+        const index = modelName.length % images.length;
+        return images[index];
+    }
 
-    // Create a unique hash based on both brand AND model name
+    // Heuristics based on query keywords
+    if (query.includes('suv') || query.includes('jeep') || query.includes('rover')) return GENERIC_SUV;
+    if (query.includes('sport') || query.includes('coupe') || query.includes('convertible') || query.includes('gt')) return GENERIC_SPORT;
+
+    // Last resort: Deterministic random from a high quality luxury pool
+    const LUXURY_POOL = [
+        GENERIC_SEDAN,
+        GENERIC_SUV,
+        'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&q=80',
+        'https://images.unsplash.com/photo-1617788138017-80ad40651399?w=800&q=80',
+        'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&q=80',
+    ];
+
     let hash = 0;
-    const seed = query + brandName + modelName;
-    for (let i = 0; i < seed.length; i++) {
-        hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+    for (let i = 0; i < query.length; i++) {
+        hash = ((hash << 5) - hash) + query.charCodeAt(i);
         hash |= 0;
     }
-    const index = Math.abs(hash) % imagePool.length;
-
-    // Optional: Filter index to match body type if possible (simplified heuristic)
-    // SUVs tend to be in the middle-end of our pool, sports at the start
-    if (isSUV && index < 5) return imagePool[(index + 10) % imagePool.length];
-    if (isSport && index > 10) return imagePool[index % 5];
-
-    return imagePool[index];
+    return LUXURY_POOL[Math.abs(hash) % LUXURY_POOL.length];
 }
 
 /**

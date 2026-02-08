@@ -66,27 +66,39 @@ export async function adminSignIn(email: string, password: string): Promise<Admi
 /**
  * Fetch dashboard statistics
  */
+/**
+ * Fetch dashboard statistics
+ */
 export async function fetchAdminDashboardStats(): Promise<AdminDashboardStats> {
     try {
-        const { data, error } = await supabase
-            .from('admin_dashboard_stats')
-            .select('*')
-            .single();
+        // Since the view 'admin_dashboard_stats' doesn't exist, we'll fetch manual counts
+        const [carsResult, bookingsResult] = await Promise.all([
+            supabase.from('cars').select('status', { count: 'exact' }),
+            supabase.from('bookings').select('status, total_price', { count: 'exact' })
+        ]);
 
-        if (error) {
-            logError('Error fetching admin stats:', error);
-            // Return default stats if view doesn't exist
-            return {
-                total_cars: 0,
-                available_cars: 0,
-                total_bookings: 0,
-                active_bookings: 0,
-                upcoming_bookings: 0,
-                total_revenue: 0
-            };
-        }
+        const totalCars = carsResult.count || 0;
+        const availableCars = carsResult.data?.filter(c => c.status === 'available').length || 0;
 
-        return data;
+        const totalBookings = bookingsResult.count || 0;
+        const bookings = bookingsResult.data || [];
+
+        const activeBookings = bookings.filter(b => b.status === 'active').length;
+        const upcomingBookings = bookings.filter(b => b.status === 'upcoming').length;
+
+        // Calculate total revenue from completed/active bookings
+        const totalRevenue = bookings
+            .filter(b => b.status === 'completed' || b.status === 'active')
+            .reduce((sum, b) => sum + (Number(b.total_price) || 0), 0);
+
+        return {
+            total_cars: totalCars,
+            available_cars: availableCars,
+            total_bookings: totalBookings,
+            active_bookings: activeBookings,
+            upcoming_bookings: upcomingBookings,
+            total_revenue: totalRevenue
+        };
     } catch (error) {
         logError('Error in fetchAdminDashboardStats:', error);
         return {
