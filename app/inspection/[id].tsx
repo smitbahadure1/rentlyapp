@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect } from 'react';
 import { getCarData } from '@/services/carDataStore';
 import { createInspection } from '@/services/supabaseService';
-import { useUser } from '@clerk/clerk-expo';
+import { auth } from '@/lib/firebase';
 
 const { width } = Dimensions.get('window');
 
@@ -34,7 +34,7 @@ export default function VirtualInspection() {
         setStoredCar(car);
     }, [id]);
 
-    const { user } = useUser();
+    const user = auth.currentUser;
 
     const handleAddHotspot = (e: any) => {
         const { locationX, locationY } = e.nativeEvent;
@@ -50,7 +50,7 @@ export default function VirtualInspection() {
                 if (user) {
                     await createInspection({
                         car_id: id as string,
-                        inspector_id: user.id,
+                        inspector_id: user.uid,
                         type: 'check-out',
                         status: hotspots.length > 5 ? 'needs_attention' : 'passed',
                         notes: `Customer inspection completed. ${hotspots.length} issues reported. Steps: ${STEPS.join(', ')}`,

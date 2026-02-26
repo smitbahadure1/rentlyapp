@@ -1,4 +1,5 @@
-import { supabase } from '@/lib/supabase';
+import { db } from '@/lib/firebase';
+import { collection, doc, getDocs, getDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { logError, logInfo } from '../config/production';
 
 export interface AdminUser {
@@ -37,24 +38,19 @@ export interface BookingWithDetails {
 
 /**
  * Admin authentication - simple check for demo purposes
- * In production, use proper authentication with hashed passwords
  */
 export async function adminSignIn(email: string, password: string): Promise<AdminUser | null> {
     try {
-        // For demo purposes, hardcoded check
         if (email === 'justme13680@gmail.com' && password === 'Aditya1234') {
-            // In production, query the database
             const adminUser: AdminUser = {
                 id: 'admin-001',
                 email: email,
                 full_name: 'Admin User',
                 last_login: new Date().toISOString()
             };
-
             logInfo('✅ Admin login successful:', email);
             return adminUser;
         }
-
         logError('❌ Invalid admin credentials');
         return null;
     } catch (error) {
@@ -68,25 +64,33 @@ export async function adminSignIn(email: string, password: string): Promise<Admi
  */
 export async function fetchAdminDashboardStats(): Promise<AdminDashboardStats> {
     try {
-        const { data, error } = await supabase
-            .from('admin_dashboard_stats')
-            .select('*')
-            .single();
+        const carsSnapshot = await getDocs(collection(db, 'cars'));
+        const bookingsSnapshot = await getDocs(collection(db, 'bookings'));
 
-        if (error) {
-            logError('Error fetching admin stats:', error);
-            // Return default stats if view doesn't exist
-            return {
-                total_cars: 0,
-                available_cars: 0,
-                total_bookings: 0,
-                active_bookings: 0,
-                upcoming_bookings: 0,
-                total_revenue: 0
-            };
-        }
+        let available_cars = 0;
+        carsSnapshot.docs.forEach(doc => {
+            if (doc.data().status === 'available') available_cars++;
+        });
 
-        return data;
+        let active_bookings = 0;
+        let upcoming_bookings = 0;
+        let total_revenue = 0;
+
+        bookingsSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            if (data.status === 'active') active_bookings++;
+            if (data.status === 'upcoming') upcoming_bookings++;
+            total_revenue += (data.total_price || 0);
+        });
+
+        return {
+            total_cars: carsSnapshot.size,
+            available_cars,
+            total_bookings: bookingsSnapshot.size,
+            active_bookings,
+            upcoming_bookings,
+            total_revenue
+        };
     } catch (error) {
         logError('Error in fetchAdminDashboardStats:', error);
         return {
@@ -105,24 +109,20 @@ export async function fetchAdminDashboardStats(): Promise<AdminDashboardStats> {
  */
 export async function fetchAllBookings(): Promise<BookingWithDetails[]> {
     try {
-        const { data, error } = await supabase
-            .from('bookings')
-            .select(`
-                *,
-                cars (
-                    brand,
-                    model,
-                    image
-                )
-            `)
-            .order('created_at', { ascending: false });
+        const querySnapshot = await getDocs(collection(db, 'bookings'));
+        const bookings = [];
 
-        if (error) {
-            logError('Error fetching all bookings:', error);
-            return [];
+        for (const docSnapshot of querySnapshot.docs) {
+            const data = docSnapshot.data();
+            const carDoc = await getDoc(doc(db, 'cars', data.car_id));
+            if (carDoc.exists()) {
+                const carData = carDoc.data();
+                data.cars = { brand: carData.brand, model: carData.model, image: carData.image };
+            }
+            bookings.push({ id: docSnapshot.id, ...data } as BookingWithDetails);
         }
 
-        return data || [];
+        return bookings.sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime());
     } catch (error) {
         logError('Error in fetchAllBookings:', error);
         return [];
@@ -134,17 +134,8 @@ export async function fetchAllBookings(): Promise<BookingWithDetails[]> {
  */
 export async function fetchAllCars() {
     try {
-        const { data, error } = await supabase
-            .from('cars')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            logError('Error fetching all cars:', error);
-            return [];
-        }
-
-        return data || [];
+        const querySnapshot = await getDocs(collection(db, 'cars'));
+        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (error) {
         logError('Error in fetchAllCars:', error);
         return [];
@@ -156,18 +147,10 @@ export async function fetchAllCars() {
  */
 export async function updateCarStatus(carId: string, status: string) {
     try {
-        const { data, error } = await supabase
-            .from('cars')
-            .update({ status })
-            .eq('id', carId)
-            .select();
-
-        if (error) {
-            logError('Error updating car status:', error);
-            throw error;
-        }
-
-        return data[0];
+        const docRef = doc(db, 'cars', carId);
+        await updateDoc(docRef, { status });
+        const snapshot = await getDoc(docRef);
+        return { id: snapshot.id, ...snapshot.data() };
     } catch (error) {
         logError('Error in updateCarStatus:', error);
         throw error;
@@ -179,16 +162,7 @@ export async function updateCarStatus(carId: string, status: string) {
  */
 export async function deleteCar(carId: string) {
     try {
-        const { error } = await supabase
-            .from('cars')
-            .delete()
-            .eq('id', carId);
-
-        if (error) {
-            logError('Error deleting car:', error);
-            throw error;
-        }
-
+        await deleteDoc(doc(db, 'cars', carId));
         logInfo('✅ Car deleted successfully:', carId);
     } catch (error) {
         logError('Error in deleteCar:', error);
@@ -201,18 +175,10 @@ export async function deleteCar(carId: string) {
  */
 export async function updateBookingStatusAdmin(bookingId: string, status: 'active' | 'upcoming' | 'completed' | 'cancelled') {
     try {
-        const { data, error } = await supabase
-            .from('bookings')
-            .update({ status })
-            .eq('id', bookingId)
-            .select();
-
-        if (error) {
-            logError('Error updating booking status:', error);
-            throw error;
-        }
-
-        return data[0];
+        const docRef = doc(db, 'bookings', bookingId);
+        await updateDoc(docRef, { status });
+        const snapshot = await getDoc(docRef);
+        return { id: snapshot.id, ...snapshot.data() };
     } catch (error) {
         logError('Error in updateBookingStatusAdmin:', error);
         throw error;

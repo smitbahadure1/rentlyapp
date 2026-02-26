@@ -11,12 +11,12 @@ import { useEffect } from 'react';
 const { width } = Dimensions.get('window');
 
 import { fetchUserBookings } from '@/services/supabaseService';
-import { useUser } from '@clerk/clerk-expo';
+import { auth } from '@/lib/firebase';
 import { useState } from 'react';
 
 export default function ActiveTabScreen() {
     const router = useRouter();
-    const { user } = useUser();
+    const user = auth.currentUser;
     const [activeBooking, setActiveBooking] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -25,7 +25,7 @@ export default function ActiveTabScreen() {
             if (!user) return;
             try {
                 setIsLoading(true);
-                const bookings = await fetchUserBookings(user.id);
+                const bookings = await fetchUserBookings(user.uid);
                 // Find the first active booking
                 const active = bookings?.find(b => b.status === 'active');
                 if (active) {

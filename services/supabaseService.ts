@@ -1,4 +1,5 @@
-import { supabase } from '@/lib/supabase';
+import { db } from '@/lib/firebase';
+import { collection, doc, getDocs, getDoc, setDoc, addDoc, updateDoc, query, where, orderBy } from 'firebase/firestore';
 import { logError, logInfo, logWarn } from '../config/production';
 
 export interface SupabaseCar {
@@ -72,18 +73,16 @@ export interface SupabaseReview {
 }
 
 /**
- * Fetch all cars from Supabase
+ * Fetch all cars from Firebase
  */
 export async function fetchCars() {
-    const { data, error } = await supabase
-        .from('cars')
-        .select('*');
-
-    if (error) {
-        logWarn('Supabase cars fetch failed (using fallback):', error);
+    try {
+        const querySnapshot = await getDocs(collection(db, 'cars'));
+        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+        logWarn('Firebase cars fetch failed:', error);
         return [];
     }
-    return data;
 }
 
 /**
@@ -91,181 +90,182 @@ export async function fetchCars() {
  */
 export async function fetchUserBookings(userId: string) {
     logInfo('🔍 Fetching bookings for user:', userId);
-    const { data, error } = await supabase
-        .from('bookings')
-        .select(`
-            *,
-            cars (*)
-        `)
-        .eq('user_id', userId);
+    try {
+        const q = query(collection(db, 'bookings'), where('user_id', '==', userId));
+        const querySnapshot = await getDocs(q);
+        const bookings = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
 
-    if (error) {
-        logError('❌ Supabase error fetching bookings:', error);
+        // Fetch associated cars manually as Firestore is NoSQL
+        for (let i = 0; i < bookings.length; i++) {
+            const carDoc = await getDoc(doc(db, 'cars', bookings[i].car_id));
+            if (carDoc.exists()) {
+                bookings[i].cars = { id: carDoc.id, ...carDoc.data() };
+            }
+        }
+
+        logInfo('✅ Firebase returned:', bookings.length, 'bookings');
+        return bookings;
+    } catch (error) {
+        logError('❌ Firebase error fetching bookings:', error);
         return [];
     }
-    logInfo('✅ Supabase returned:', data?.length || 0, 'bookings');
-    return data;
 }
 
 /**
- * Create a new booking in Supabase
+ * Create a new booking in Firebase
  */
 export async function createSupabaseBooking(bookingData: Omit<SupabaseBooking, 'id'>) {
-    const { data, error } = await supabase
-        .from('bookings')
-        .insert([bookingData])
-        .select();
-
-    if (error) {
+    try {
+        const docRef = await addDoc(collection(db, 'bookings'), bookingData);
+        return { id: docRef.id, ...bookingData };
+    } catch (error) {
         console.error('Error creating booking:', error);
         throw error;
     }
-    return data[0];
 }
 
 /**
  * Update booking status
  */
 export async function updateBookingStatus(bookingId: string, status: SupabaseBooking['status']) {
-    const { data, error } = await supabase
-        .from('bookings')
-        .update({ status })
-        .eq('id', bookingId)
-        .select();
-
-    if (error) {
+    try {
+        const docRef = doc(db, 'bookings', bookingId);
+        await updateDoc(docRef, { status });
+        const snapshot = await getDoc(docRef);
+        return { id: snapshot.id, ...snapshot.data() };
+    } catch (error) {
         console.error('Error updating booking status:', error);
         throw error;
     }
-    return data[0];
 }
 
 /**
- * Upsert a car to ensure it exists in Supabase
+ * Upsert a car to ensure it exists in Firebase
  */
 export async function upsertCar(carData: any) {
     const carId = carData.id;
     if (!carId) throw new Error('Car ID is required for upsert');
 
-    const { data, error } = await supabase
-        .from('cars')
-        .upsert([{
-            id: carId,
-            brand: carData.brand || 'Unknown',
-            model: carData.model || 'Premium Model',
-            image: carData.image || '',
-            price: Number(carData.price) || 0,
-            rating: Number(carData.rating) || 4.5,
-            fuel_type: carData.fuelType || carData.fuel_type || 'Petrol',
-            transmission: carData.transmission || 'Automatic',
-            seats: Number(carData.seats) || 5,
-            status: carData.status || 'available'
-        }])
-        .select();
+    const payload = {
+        brand: carData.brand || 'Unknown',
+        model: carData.model || 'Premium Model',
+        image: carData.image || '',
+        price: Number(carData.price) || 0,
+        rating: Number(carData.rating) || 4.5,
+        fuel_type: carData.fuelType || carData.fuel_type || 'Petrol',
+        transmission: carData.transmission || 'Automatic',
+        seats: Number(carData.seats) || 5,
+        status: carData.status || 'available'
+    };
 
-    if (error) {
+    try {
+        await setDoc(doc(db, 'cars', carId), payload, { merge: true });
+        return { id: carId, ...payload };
+    } catch (error) {
         console.error('Error upserting car:', error);
         throw error;
     }
-    return data[0];
 }
 
 /**
- * Upsert a user in Supabase (Sync from Clerk)
+ * Upsert a user in Firebase 
  */
 export async function upsertUser(userData: SupabaseUser) {
     if (!userData.id) throw new Error('User ID is required');
 
-    const { data, error } = await supabase
-        .from('users')
-        .upsert([userData])
-        .select();
-
-    if (error) {
+    try {
+        await setDoc(doc(db, 'users', userData.id), userData, { merge: true });
+        return userData;
+    } catch (error) {
         console.error('Error upserting user:', error);
         throw error;
     }
-    return data[0];
 }
 
 /**
  * Get user profile
  */
 export async function getUserProfile(userId: string) {
-    const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-        
-    if (error) {
-        logWarn('User not found in public.users, might need sync:', error);
+    try {
+        const docSnap = await getDoc(doc(db, 'users', userId));
+        if (docSnap.exists()) {
+            return { id: docSnap.id, ...docSnap.data() };
+        } else {
+            return null;
+        }
+    } catch (error) {
+        logWarn('User not found:', error);
         return null;
     }
-    return data;
 }
 
 /**
  * Create a payment record
  */
 export async function createPayment(paymentData: SupabasePayment) {
-    const { data, error } = await supabase
-        .from('payments')
-        .insert([paymentData])
-        .select();
-
-    if (error) {
+    try {
+        const docRef = await addDoc(collection(db, 'payments'), paymentData);
+        return { id: docRef.id, ...paymentData };
+    } catch (error) {
         console.error('Error creating payment:', error);
         throw error;
     }
-    return data[0];
 }
 
 /**
  * Create a vehicle inspection report
  */
 export async function createInspection(inspectionData: SupabaseInspection) {
-    const { data, error } = await supabase
-        .from('inspections')
-        .insert([inspectionData])
-        .select();
-
-    if (error) {
+    try {
+        const docRef = await addDoc(collection(db, 'inspections'), inspectionData);
+        return { id: docRef.id, ...inspectionData };
+    } catch (error) {
         console.error('Error creating inspection:', error);
         throw error;
     }
-    return data[0];
 }
 
 /**
  * Add a review for a car
  */
 export async function addReview(reviewData: SupabaseReview) {
-    const { data, error } = await supabase
-        .from('reviews')
-        .insert([reviewData])
-        .select();
-
-    if (error) {
+    try {
+        const docRef = await addDoc(collection(db, 'reviews'), {
+            ...reviewData,
+            created_at: new Date().toISOString()
+        });
+        return { id: docRef.id, ...reviewData };
+    } catch (error) {
         console.error('Error adding review:', error);
         throw error;
     }
-    return data[0];
 }
 
 /**
  * Fetch reviews for a specific car
  */
 export async function fetchCarReviews(carId: string) {
-    const { data, error } = await supabase
-        .from('reviews')
-        .select('*, users(full_name, avatar_url)')
-        .eq('car_id', carId)
-        .order('created_at', { ascending: false });
+    try {
+        const q = query(
+            collection(db, 'reviews'),
+            where('car_id', '==', carId)
+            // Note: orderBy requires a composite index if used with where
+        );
+        const querySnapshot = await getDocs(q);
+        const reviews = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
 
-    if (error) {
+        // Fetch associated users
+        for (let i = 0; i < reviews.length; i++) {
+            const userDoc = await getDoc(doc(db, 'users', reviews[i].user_id));
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                reviews[i].users = { full_name: userData.full_name, avatar_url: userData.avatar_url };
+            }
+        }
+
+        return reviews.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    } catch (error) {
         console.error('Error fetching reviews:', error);
         return [];
     }
-    return data;
 }

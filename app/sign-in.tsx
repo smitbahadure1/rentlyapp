@@ -5,14 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSignIn } from '@clerk/clerk-expo';
 import { useState, useCallback } from 'react';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { upsertUser } from '@/services/supabaseService';
-import { useUser } from '@clerk/clerk-expo';
 
 export default function SignInScreen() {
-    const { signIn, setActive, isLoaded } = useSignIn();
-    const { user } = useUser();
     const router = useRouter();
 
     const [emailAddress, setEmailAddress] = useState('');
@@ -20,42 +18,27 @@ export default function SignInScreen() {
     const [isLoading, setIsLoading] = useState(false);
 
     const onSignInPress = useCallback(async () => {
-        if (!isLoaded) return;
-
         setIsLoading(true);
         try {
-            const signInAttempt = await signIn.create({
-                identifier: emailAddress,
-                password,
+            const userCredential = await signInWithEmailAndPassword(auth, emailAddress, password);
+            const user = userCredential.user;
+
+            // Sync user to Backend (Firebase Firestore will be handled via services)
+            await upsertUser({
+                id: user.uid,
+                email: user.email || '',
+                full_name: user.displayName || '',
+                avatar_url: user.photoURL || '',
             });
 
-            if (signInAttempt.status === 'complete') {
-                await setActive({ session: signInAttempt.createdSessionId });
-
-                // Sync user to Supabase
-                if (user) {
-                    await upsertUser({
-                        id: user.id,
-                        email: user.primaryEmailAddress?.emailAddress || '',
-                        full_name: user.fullName || '',
-                        avatar_url: user.imageUrl || '',
-                    });
-                }
-
-                router.replace('/(tabs)/home');
-            } else {
-                // See https://clerk.com/docs/custom-flows/error-handling
-                // for more info on error handling
-                console.error(JSON.stringify(signInAttempt, null, 2));
-                Alert.alert("Error", "Check your credentials and try again.");
-            }
+            router.replace('/(tabs)/home');
         } catch (err: any) {
             console.error(JSON.stringify(err, null, 2));
-            Alert.alert("Authentication Failed", err.errors?.[0]?.longMessage || "Something went wrong.");
+            Alert.alert("Authentication Failed", err.message || "Check your credentials and try again.");
         } finally {
             setIsLoading(false);
         }
-    }, [isLoaded, emailAddress, password]);
+    }, [emailAddress, password, router]);
 
     return (
         <View style={styles.container}>

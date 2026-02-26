@@ -5,77 +5,43 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSignUp } from '@clerk/clerk-expo';
 import { useState } from 'react';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { upsertUser } from '@/services/supabaseService';
-import { useUser } from '@clerk/clerk-expo';
 
 export default function SignUpScreen() {
-    const { isLoaded, signUp, setActive } = useSignUp();
-    const { user } = useUser();
     const router = useRouter();
 
     const [emailAddress, setEmailAddress] = useState('');
     const [password, setPassword] = useState('');
-    const [pendingVerification, setPendingVerification] = useState(false);
-    const [code, setCode] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
     // Handle submission of signup form
     const onSignUpPress = async () => {
-        if (!isLoaded) return;
-        setIsLoading(true);
-
-        try {
-            await signUp.create({
-                emailAddress,
-                password,
-            });
-
-            // Send verification email
-            await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
-
-            // Display verification form
-            setPendingVerification(true);
-        } catch (err: any) {
-            console.error(JSON.stringify(err, null, 2));
-            Alert.alert("Sign Up Failed", err.errors?.[0]?.longMessage || "Check your details and try again.");
-        } finally {
-            setIsLoading(false);
+        if (!emailAddress || !password) {
+            Alert.alert("Error", "Please fill all the fields");
+            return;
         }
-    };
-
-    // Handle submission of verification form
-    const onPressVerify = async () => {
-        if (!isLoaded) return;
         setIsLoading(true);
 
         try {
-            const completeSignUp = await signUp.attemptEmailAddressVerification({
-                code,
+            const userCredential = await createUserWithEmailAndPassword(auth, emailAddress, password);
+            const user = userCredential.user;
+
+            // Sync user to Backend
+            await upsertUser({
+                id: user.uid,
+                email: user.email || '',
+                full_name: user.displayName || '',
+                avatar_url: user.photoURL || '',
             });
 
-            if (completeSignUp.status === 'complete') {
-                await setActive({ session: completeSignUp.createdSessionId });
-
-                // Sync user to Supabase
-                if (user) {
-                    await upsertUser({
-                        id: user.id,
-                        email: user.primaryEmailAddress?.emailAddress || '',
-                        full_name: user.fullName || '',
-                        avatar_url: user.imageUrl || '',
-                    });
-                }
-
-                router.replace('/(tabs)/home');
-            } else {
-                console.error(JSON.stringify(completeSignUp, null, 2));
-                Alert.alert("Error", "Completion status not valid.");
-            }
+            Alert.alert("Success", "Account created successfully!");
+            router.replace('/(tabs)/home');
         } catch (err: any) {
             console.error(JSON.stringify(err, null, 2));
-            Alert.alert("Verification Failed", err.errors?.[0]?.longMessage || "Incorrect code.");
+            Alert.alert("Sign Up Failed", err.message || "Check your details and try again.");
         } finally {
             setIsLoading(false);
         }
@@ -101,7 +67,7 @@ export default function SignUpScreen() {
                     </TouchableOpacity>
                     <View style={styles.headerTextContainer}>
                         <Text style={styles.headerSubtitle}>JOIN THE FLEET</Text>
-                        <Text style={styles.headerTitle}>{pendingVerification ? 'Verify' : 'Sign Up'}</Text>
+                        <Text style={styles.headerTitle}>Sign Up</Text>
                     </View>
                 </SafeAreaView>
             </View>
@@ -111,90 +77,52 @@ export default function SignUpScreen() {
                 style={styles.formSection}
             >
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                    {!pendingVerification ? (
-                        <>
-                            <View style={styles.inputContainer}>
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>EMAIL ADDRESS</Text>
-                                    <View style={styles.inputWrapper}>
-                                        <Ionicons name="mail-outline" size={20} color="#6B7280" />
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="e.g. alex@rently.pro"
-                                            placeholderTextColor="#4B5563"
-                                            keyboardType="email-address"
-                                            autoCapitalize="none"
-                                            value={emailAddress}
-                                            onChangeText={setEmailAddress}
-                                        />
-                                    </View>
-                                </View>
-
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>PASSWORD</Text>
-                                    <View style={styles.inputWrapper}>
-                                        <Ionicons name="lock-closed-outline" size={20} color="#6B7280" />
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="••••••••"
-                                            placeholderTextColor="#4B5563"
-                                            secureTextEntry
-                                            value={password}
-                                            onChangeText={setPassword}
-                                        />
-                                    </View>
-                                </View>
+                    <View style={styles.inputContainer}>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>EMAIL ADDRESS</Text>
+                            <View style={styles.inputWrapper}>
+                                <Ionicons name="mail-outline" size={20} color="#6B7280" />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="e.g. alex@rently.pro"
+                                    placeholderTextColor="#4B5563"
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    value={emailAddress}
+                                    onChangeText={setEmailAddress}
+                                />
                             </View>
+                        </View>
 
-                            <TouchableOpacity
-                                style={[styles.signInButton, isLoading && { opacity: 0.7 }]}
-                                onPress={onSignUpPress}
-                                disabled={isLoading}
-                                activeOpacity={0.8}
-                            >
-                                {isLoading ? <ActivityIndicator color="#000" /> : (
-                                    <>
-                                        <Text style={styles.signInText}>CREATE ACCOUNT</Text>
-                                        <Ionicons name="chevron-forward" size={18} color="#000" />
-                                    </>
-                                )}
-                            </TouchableOpacity>
-                        </>
-                    ) : (
-                        <>
-                            <View style={styles.inputContainer}>
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>VERIFICATION CODE</Text>
-                                    <View style={styles.inputWrapper}>
-                                        <Ionicons name="shield-checkmark-outline" size={20} color="#6B7280" />
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="123456"
-                                            placeholderTextColor="#4B5563"
-                                            keyboardType="number-pad"
-                                            value={code}
-                                            onChangeText={setCode}
-                                        />
-                                    </View>
-                                    <Text style={styles.helperText}>Enter the code sent to your email.</Text>
-                                </View>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>PASSWORD</Text>
+                            <View style={styles.inputWrapper}>
+                                <Ionicons name="lock-closed-outline" size={20} color="#6B7280" />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="••••••••"
+                                    placeholderTextColor="#4B5563"
+                                    secureTextEntry
+                                    value={password}
+                                    onChangeText={setPassword}
+                                />
                             </View>
+                        </View>
+                    </View>
 
-                            <TouchableOpacity
-                                style={[styles.signInButton, isLoading && { opacity: 0.7 }]}
-                                onPress={onPressVerify}
-                                disabled={isLoading}
-                                activeOpacity={0.8}
-                            >
-                                {isLoading ? <ActivityIndicator color="#000" /> : (
-                                    <>
-                                        <Text style={styles.signInText}>VERIFY EMAIL</Text>
-                                        <Ionicons name="chevron-forward" size={18} color="#000" />
-                                    </>
-                                )}
-                            </TouchableOpacity>
-                        </>
-                    )}
+                    <TouchableOpacity
+                        style={[styles.signInButton, isLoading && { opacity: 0.7 }]}
+                        onPress={onSignUpPress}
+                        disabled={isLoading}
+                        activeOpacity={0.8}
+                    >
+                        {isLoading ? <ActivityIndicator color="#000" /> : (
+                            <>
+                                <Text style={styles.signInText}>CREATE ACCOUNT</Text>
+                                <Ionicons name="chevron-forward" size={18} color="#000" />
+                            </>
+                        )}
+                    </TouchableOpacity>
 
                     <View style={styles.footer}>
                         <Text style={styles.footerText}>Already have an account? </Text>

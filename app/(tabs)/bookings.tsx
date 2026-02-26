@@ -5,12 +5,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect } from 'react';
-import { useUser } from '@clerk/clerk-expo';
+import { auth } from '@/lib/firebase';
 import { fetchUserBookings } from '@/services/supabaseService';
 
 export default function BookingsScreen() {
     const router = useRouter();
-    const { user } = useUser();
+    const user = auth.currentUser;
     const [activeTab, setActiveTab] = useState('Active');
     const [bookings, setBookings] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -25,10 +25,10 @@ export default function BookingsScreen() {
                 return;
             }
             try {
-                console.log('👤 Current user ID:', user.id);
+                console.log('👤 Current user ID:', user.uid);
                 // Only show loader on initial mount or major refresh
                 if (refreshTrigger === 0) setIsLoading(true);
-                const data = await fetchUserBookings(user.id);
+                const data = await fetchUserBookings(user.uid);
                 console.log('📋 Fetched bookings:', JSON.stringify(data, null, 2));
                 console.log('📋 Number of bookings:', data?.length || 0);
                 if (data && data.length > 0) {

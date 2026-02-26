@@ -5,7 +5,8 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useUser, useAuth } from '@clerk/clerk-expo';
+import { auth } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
 import { useState, useEffect } from 'react';
 import { fetchUserBookings } from '@/services/supabaseService';
 
@@ -21,15 +22,14 @@ const MENU_ITEMS = [
 
 export default function AccountScreen() {
     const router = useRouter();
-    const { user, isLoaded } = useUser();
-    const { signOut } = useAuth();
+    const user = auth.currentUser;
     const [tripCount, setTripCount] = useState(0);
 
     useEffect(() => {
         async function loadTripCount() {
             if (!user) return;
             try {
-                const bookings = await fetchUserBookings(user.id);
+                const bookings = await fetchUserBookings(user.uid);
                 setTripCount(bookings?.length || 0);
             } catch (error) {
                 console.error('Error loading trip count:', error);
@@ -39,20 +39,12 @@ export default function AccountScreen() {
     }, [user]);
 
     const handleLogout = async () => {
-        await signOut();
+        await signOut(auth);
         router.replace('/');
     };
 
-    if (!isLoaded) {
-        return (
-            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-                <ActivityIndicator size="large" color="#FFF" />
-            </View>
-        );
-    }
-
     // Properly format the display name (Capitalize and split)
-    const rawName = user?.fullName || user?.emailAddresses[0]?.emailAddress.split('@')[0] || 'Member';
+    const rawName = user?.displayName || user?.email?.split('@')[0] || 'Member';
     const displayName = rawName.split(/[-_.]/).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
     return (
@@ -91,9 +83,9 @@ export default function AccountScreen() {
                                         <View style={styles.avatarGlow} />
                                         <View style={styles.avatarBorder}>
                                             <View style={styles.avatar}>
-                                                {user?.imageUrl ? (
+                                                {user?.photoURL ? (
                                                     <Image
-                                                        source={{ uri: user.imageUrl }}
+                                                        source={{ uri: user.photoURL }}
                                                         style={styles.avatarImage}
                                                         contentFit="cover"
                                                     />
@@ -115,7 +107,7 @@ export default function AccountScreen() {
                                     </Text>
                                     <View style={styles.memberSinceRow}>
                                         <View style={styles.statusDot} />
-                                        <Text style={styles.userSince}>Member since {user?.createdAt ? new Date(user.createdAt).getFullYear() : '2024'}</Text>
+                                        <Text style={styles.userSince}>Member since {user?.metadata?.creationTime ? new Date(user.metadata.creationTime).getFullYear() : '2024'}</Text>
                                     </View>
                                 </View>
 

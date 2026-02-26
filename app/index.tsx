@@ -6,7 +6,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useState, useRef, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAuth } from '@clerk/clerk-expo';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
@@ -44,7 +45,6 @@ const ONBOARDING_DATA = [
 ];
 
 export default function OnboardingScreen() {
-    const { isSignedIn } = useAuth();
     const router = useRouter();
     const [activeIndex, setActiveIndex] = useState(0);
     const scrollX = useSharedValue(0);
@@ -52,10 +52,13 @@ export default function OnboardingScreen() {
 
     // Redirect if already signed in
     useEffect(() => {
-        if (isSignedIn) {
-            router.replace('/(tabs)/home');
-        }
-    }, [isSignedIn]);
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                router.replace('/(tabs)/home');
+            }
+        });
+        return unsubscribe;
+    }, []);
 
     // Handle Phone's Back Button Integration
     useEffect(() => {

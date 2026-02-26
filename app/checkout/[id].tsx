@@ -11,11 +11,11 @@ import { getCarData } from '@/services/carDataStore';
 
 const { width } = Dimensions.get('window');
 
-import { useUser } from '@clerk/clerk-expo';
+import { auth } from '@/lib/firebase';
 import { createSupabaseBooking, upsertCar, createPayment } from '@/services/supabaseService';
 
 export default function CheckoutScreen() {
-    const { user } = useUser();
+    const user = auth.currentUser;
     const { id } = useLocalSearchParams();
     const router = useRouter();
     const [insurance, setInsurance] = useState(false);
@@ -112,10 +112,10 @@ export default function CheckoutScreen() {
             await upsertCar(storedCar);
 
             // 2. Create the booking record
-            console.log('Creating booking for user:', user.id);
+            console.log('Creating booking for user:', user.uid);
             const bookingPayload = {
                 car_id: car.id,
-                user_id: user.id,
+                user_id: user.uid,
                 status: 'upcoming' as const,
                 start_date: startDate.toISOString(),
                 end_date: endDate.toISOString(),
@@ -130,7 +130,7 @@ export default function CheckoutScreen() {
             console.log('Creating payment record for booking:', booking.id);
             await createPayment({
                 booking_id: booking.id,
-                user_id: user.id,
+                user_id: user.uid,
                 amount: total,
                 currency: 'INR',
                 payment_method: selectedPayment,
