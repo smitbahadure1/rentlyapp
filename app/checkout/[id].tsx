@@ -12,7 +12,7 @@ import { getCarData } from '@/services/carDataStore';
 const { width } = Dimensions.get('window');
 
 import { useUser } from '@clerk/clerk-expo';
-import { createSupabaseBooking, upsertCar } from '@/services/supabaseService';
+import { createSupabaseBooking, upsertCar, createPayment } from '@/services/supabaseService';
 
 export default function CheckoutScreen() {
     const { user } = useUser();
@@ -124,7 +124,19 @@ export default function CheckoutScreen() {
                 drop_location: dropAddress,
             };
 
-            await createSupabaseBooking(bookingPayload);
+            const booking = await createSupabaseBooking(bookingPayload);
+
+            // 3. Create the payment record
+            console.log('Creating payment record for booking:', booking.id);
+            await createPayment({
+                booking_id: booking.id,
+                user_id: user.id,
+                amount: total,
+                currency: 'INR',
+                payment_method: selectedPayment,
+                transaction_id: `txn_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                status: 'success'
+            });
 
             setIsProcessing(false);
             setShowSuccessModal(true);

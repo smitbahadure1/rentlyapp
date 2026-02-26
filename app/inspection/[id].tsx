@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect } from 'react';
 import { getCarData } from '@/services/carDataStore';
+import { createInspection } from '@/services/supabaseService';
+import { useUser } from '@clerk/clerk-expo';
 
 const { width } = Dimensions.get('window');
 
@@ -32,14 +34,34 @@ export default function VirtualInspection() {
         setStoredCar(car);
     }, [id]);
 
+    const { user } = useUser();
+
     const handleAddHotspot = (e: any) => {
         const { locationX, locationY } = e.nativeEvent;
         setHotspots([...hotspots, { x: locationX, y: locationY, step: STEPS[activeStep] }]);
     };
 
-    const nextStep = () => {
-        if (activeStep < STEPS.length - 1) setActiveStep(activeStep + 1);
-        else router.push(`/active-trip/${id}` as any);
+    const nextStep = async () => {
+        if (activeStep < STEPS.length - 1) {
+            setActiveStep(activeStep + 1);
+        } else {
+            // Final step completed, save results to Supabase
+            try {
+                if (user) {
+                    await createInspection({
+                        car_id: id as string,
+                        inspector_id: user.id,
+                        type: 'check-out',
+                        status: hotspots.length > 5 ? 'needs_attention' : 'passed',
+                        notes: `Customer inspection completed. ${hotspots.length} issues reported. Steps: ${STEPS.join(', ')}`,
+                        damage_reported: hotspots.length > 0,
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to save inspection:', error);
+            }
+            router.push(`/active-trip/${id}` as any);
+        }
     };
 
     if (!storedCar) return null;

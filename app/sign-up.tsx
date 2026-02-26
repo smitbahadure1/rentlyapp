@@ -7,9 +7,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSignUp } from '@clerk/clerk-expo';
 import { useState } from 'react';
+import { upsertUser } from '@/services/supabaseService';
+import { useUser } from '@clerk/clerk-expo';
 
 export default function SignUpScreen() {
     const { isLoaded, signUp, setActive } = useSignUp();
+    const { user } = useUser();
     const router = useRouter();
 
     const [emailAddress, setEmailAddress] = useState('');
@@ -54,6 +57,17 @@ export default function SignUpScreen() {
 
             if (completeSignUp.status === 'complete') {
                 await setActive({ session: completeSignUp.createdSessionId });
+
+                // Sync user to Supabase
+                if (user) {
+                    await upsertUser({
+                        id: user.id,
+                        email: user.primaryEmailAddress?.emailAddress || '',
+                        full_name: user.fullName || '',
+                        avatar_url: user.imageUrl || '',
+                    });
+                }
+
                 router.replace('/(tabs)/home');
             } else {
                 console.error(JSON.stringify(completeSignUp, null, 2));

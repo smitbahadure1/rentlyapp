@@ -7,9 +7,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSignIn } from '@clerk/clerk-expo';
 import { useState, useCallback } from 'react';
+import { upsertUser } from '@/services/supabaseService';
+import { useUser } from '@clerk/clerk-expo';
 
 export default function SignInScreen() {
     const { signIn, setActive, isLoaded } = useSignIn();
+    const { user } = useUser();
     const router = useRouter();
 
     const [emailAddress, setEmailAddress] = useState('');
@@ -28,6 +31,17 @@ export default function SignInScreen() {
 
             if (signInAttempt.status === 'complete') {
                 await setActive({ session: signInAttempt.createdSessionId });
+
+                // Sync user to Supabase
+                if (user) {
+                    await upsertUser({
+                        id: user.id,
+                        email: user.primaryEmailAddress?.emailAddress || '',
+                        full_name: user.fullName || '',
+                        avatar_url: user.imageUrl || '',
+                    });
+                }
+
                 router.replace('/(tabs)/home');
             } else {
                 // See https://clerk.com/docs/custom-flows/error-handling
@@ -139,8 +153,8 @@ export default function SignInScreen() {
                     </View>
 
                     {/* Admin Access Button */}
-                    <TouchableOpacity 
-                        style={styles.adminButton} 
+                    <TouchableOpacity
+                        style={styles.adminButton}
                         onPress={() => router.push('/admin-sign-in' as any)}
                     >
                         <Ionicons name="shield-checkmark" size={16} color="#000" />

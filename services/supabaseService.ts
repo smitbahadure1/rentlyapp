@@ -24,6 +24,51 @@ export interface SupabaseBooking {
     total_price: number;
     pickup_location: string;
     drop_location: string;
+    payment_status?: 'pending' | 'paid' | 'refunded';
+}
+
+export interface SupabaseUser {
+    id: string;
+    email: string;
+    full_name?: string;
+    avatar_url?: string;
+    phone_number?: string;
+    driving_license?: string;
+    role?: 'user' | 'admin';
+}
+
+export interface SupabasePayment {
+    id?: string;
+    booking_id: string;
+    user_id: string;
+    amount: number;
+    currency?: string;
+    payment_method?: string;
+    transaction_id?: string;
+    status?: 'pending' | 'success' | 'failed' | 'refunded';
+}
+
+export interface SupabaseInspection {
+    id?: string;
+    car_id: string;
+    booking_id?: string;
+    inspector_id: string;
+    type: 'check-out' | 'check-in' | 'routine';
+    status?: 'passed' | 'failed' | 'needs_attention';
+    notes?: string;
+    damage_reported?: boolean;
+    fuel_level?: number;
+    mileage?: number;
+    images?: string[];
+}
+
+export interface SupabaseReview {
+    id?: string;
+    car_id: string;
+    user_id: string;
+    booking_id?: string;
+    rating: number;
+    comment?: string;
 }
 
 /**
@@ -123,4 +168,104 @@ export async function upsertCar(carData: any) {
         throw error;
     }
     return data[0];
+}
+
+/**
+ * Upsert a user in Supabase (Sync from Clerk)
+ */
+export async function upsertUser(userData: SupabaseUser) {
+    if (!userData.id) throw new Error('User ID is required');
+
+    const { data, error } = await supabase
+        .from('users')
+        .upsert([userData])
+        .select();
+
+    if (error) {
+        console.error('Error upserting user:', error);
+        throw error;
+    }
+    return data[0];
+}
+
+/**
+ * Get user profile
+ */
+export async function getUserProfile(userId: string) {
+    const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+        
+    if (error) {
+        logWarn('User not found in public.users, might need sync:', error);
+        return null;
+    }
+    return data;
+}
+
+/**
+ * Create a payment record
+ */
+export async function createPayment(paymentData: SupabasePayment) {
+    const { data, error } = await supabase
+        .from('payments')
+        .insert([paymentData])
+        .select();
+
+    if (error) {
+        console.error('Error creating payment:', error);
+        throw error;
+    }
+    return data[0];
+}
+
+/**
+ * Create a vehicle inspection report
+ */
+export async function createInspection(inspectionData: SupabaseInspection) {
+    const { data, error } = await supabase
+        .from('inspections')
+        .insert([inspectionData])
+        .select();
+
+    if (error) {
+        console.error('Error creating inspection:', error);
+        throw error;
+    }
+    return data[0];
+}
+
+/**
+ * Add a review for a car
+ */
+export async function addReview(reviewData: SupabaseReview) {
+    const { data, error } = await supabase
+        .from('reviews')
+        .insert([reviewData])
+        .select();
+
+    if (error) {
+        console.error('Error adding review:', error);
+        throw error;
+    }
+    return data[0];
+}
+
+/**
+ * Fetch reviews for a specific car
+ */
+export async function fetchCarReviews(carId: string) {
+    const { data, error } = await supabase
+        .from('reviews')
+        .select('*, users(full_name, avatar_url)')
+        .eq('car_id', carId)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching reviews:', error);
+        return [];
+    }
+    return data;
 }
