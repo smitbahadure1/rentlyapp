@@ -38,7 +38,7 @@ export default function ExploreScreen() {
         // Fetch from both sources for maximum variety
         const [supabaseCars, apiCars] = await Promise.all([
           fetchCars(),
-          getPopularCars(80)
+          getPopularCars(20)
         ]);
 
         const combined = [...(supabaseCars || []), ...(apiCars || [])];

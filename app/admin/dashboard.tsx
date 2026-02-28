@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Link } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useState, useEffect, useCallback } from 'react';
 import { fetchAdminDashboardStats, AdminDashboardStats } from '@/services/adminService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSession } from '@/services/authService';
 
 export default function AdminDashboardScreen() {
     const router = useRouter();
@@ -28,11 +29,15 @@ export default function AdminDashboardScreen() {
 
     const checkAdminAuth = async () => {
         try {
-            const adminUser = await AsyncStorage.getItem('admin_user');
-            if (!adminUser) {
+            const adminUserStr = await AsyncStorage.getItem('admin_user');
+            const session = await getSession();
+
+            // Re-authenticate if using the old fake admin session ("admin-001") or unauthenticated
+            if (!adminUserStr || !session || JSON.parse(adminUserStr).id === 'admin-001') {
+                await AsyncStorage.removeItem('admin_user');
                 router.replace('/admin-sign-in' as any);
             } else {
-                const user = JSON.parse(adminUser);
+                const user = JSON.parse(adminUserStr);
                 setAdminName(user.full_name || 'Admin');
             }
         } catch (error) {
@@ -144,47 +149,44 @@ export default function AdminDashboardScreen() {
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
 
-                    <TouchableOpacity
-                        style={styles.actionCard}
-                        onPress={() => router.push('/admin/cars' as any)}
-                    >
-                        <View style={styles.actionIcon}>
-                            <Ionicons name="car-sport-outline" size={24} color="#FFF" />
-                        </View>
-                        <View style={styles.actionContent}>
-                            <Text style={styles.actionTitle}>Manage Cars</Text>
-                            <Text style={styles.actionSubtitle}>View, edit, and manage all vehicles</Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={24} color="#6B7280" />
-                    </TouchableOpacity>
+                    <Link href="/admin/cars" asChild>
+                        <TouchableOpacity style={styles.actionCard}>
+                            <View style={styles.actionIcon}>
+                                <Ionicons name="car-sport-outline" size={24} color="#FFF" />
+                            </View>
+                            <View style={styles.actionContent}>
+                                <Text style={styles.actionTitle}>Manage Cars</Text>
+                                <Text style={styles.actionSubtitle}>View, edit, and manage all vehicles</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={24} color="#6B7280" />
+                        </TouchableOpacity>
+                    </Link>
 
-                    <TouchableOpacity
-                        style={styles.actionCard}
-                        onPress={() => router.push('/admin/bookings' as any)}
-                    >
-                        <View style={styles.actionIcon}>
-                            <Ionicons name="document-text-outline" size={24} color="#FFF" />
-                        </View>
-                        <View style={styles.actionContent}>
-                            <Text style={styles.actionTitle}>Manage Bookings</Text>
-                            <Text style={styles.actionSubtitle}>Track all rentals and reservations</Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={24} color="#6B7280" />
-                    </TouchableOpacity>
+                    <Link href="/admin/bookings" asChild>
+                        <TouchableOpacity style={styles.actionCard}>
+                            <View style={styles.actionIcon}>
+                                <Ionicons name="document-text-outline" size={24} color="#FFF" />
+                            </View>
+                            <View style={styles.actionContent}>
+                                <Text style={styles.actionTitle}>Manage Bookings</Text>
+                                <Text style={styles.actionSubtitle}>Track all rentals and reservations</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={24} color="#6B7280" />
+                        </TouchableOpacity>
+                    </Link>
 
-                    <TouchableOpacity
-                        style={styles.actionCard}
-                        onPress={() => router.push('/admin/analytics' as any)}
-                    >
-                        <View style={styles.actionIcon}>
-                            <Ionicons name="analytics-outline" size={24} color="#FFF" />
-                        </View>
-                        <View style={styles.actionContent}>
-                            <Text style={styles.actionTitle}>Analytics</Text>
-                            <Text style={styles.actionSubtitle}>View detailed reports and insights</Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={24} color="#6B7280" />
-                    </TouchableOpacity>
+                    <Link href="/admin/analytics" asChild>
+                        <TouchableOpacity style={styles.actionCard}>
+                            <View style={styles.actionIcon}>
+                                <Ionicons name="analytics-outline" size={24} color="#FFF" />
+                            </View>
+                            <View style={styles.actionContent}>
+                                <Text style={styles.actionTitle}>Analytics</Text>
+                                <Text style={styles.actionSubtitle}>View detailed reports and insights</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={24} color="#6B7280" />
+                        </TouchableOpacity>
+                    </Link>
                 </View>
             </ScrollView>
         </View>

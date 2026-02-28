@@ -6,26 +6,29 @@ import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 import { storeCarData } from '@/services/carDataStore';
-import { useEffect } from 'react';
-
 const { width } = Dimensions.get('window');
 
 import { fetchUserBookings } from '@/services/supabaseService';
 import { auth } from '@/lib/firebase';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getSession } from '@/services/authService';
 
 export default function ActiveTabScreen() {
     const router = useRouter();
-    const user = auth.currentUser;
     const [activeBooking, setActiveBooking] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         async function loadActiveBooking() {
-            if (!user) return;
             try {
+                const sessionUser = await getSession();
+                if (!sessionUser) {
+                    setIsLoading(false);
+                    return;
+                }
+
                 setIsLoading(true);
-                const bookings = await fetchUserBookings(user.uid);
+                const bookings = await fetchUserBookings(sessionUser.uid);
                 // Find the first active booking
                 const active = bookings?.find(b => b.status === 'active');
                 if (active) {
@@ -39,7 +42,7 @@ export default function ActiveTabScreen() {
             }
         }
         loadActiveBooking();
-    }, [user]);
+    }, []);
 
     if (isLoading) {
         return (

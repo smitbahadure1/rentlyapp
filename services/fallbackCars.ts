@@ -41,9 +41,10 @@ export function generateFallbackCars(count: number = 80): CarData[] {
         const brand = BRANDS[i % BRANDS.length];
         const model = MODELS[Math.floor(Math.random() * MODELS.length)];
         const imageIndex = i % UNSPLASH_CARS.length;
+        const randomSalt = Math.random().toString(36).substring(7);
 
         cars.push({
-            id: `${i}-${brand}-${model}`,
+            id: `${i}-${brand}-${model}-${randomSalt}`,
             brand,
             model: `${brand} ${model}`,
             image: UNSPLASH_CARS[imageIndex],

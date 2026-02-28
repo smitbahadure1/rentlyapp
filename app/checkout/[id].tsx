@@ -107,12 +107,7 @@ export default function CheckoutScreen() {
         setIsProcessing(true);
 
         try {
-            // 1. Ensure the car exists in Supabase (especially if it's from API)
-            console.log('Upserting car:', car.id);
-            await upsertCar(storedCar);
-
-            // 2. Create the booking record
-            console.log('Creating booking for user:', user.uid);
+            console.log('Processing booking for user:', user.uid);
             const bookingPayload = {
                 car_id: car.id,
                 user_id: user.uid,
@@ -124,11 +119,25 @@ export default function CheckoutScreen() {
                 drop_location: dropAddress,
             };
 
-            const booking = await createSupabaseBooking(bookingPayload);
+            const withTimeout = (promise: Promise<any>, ms: number, msg: string) =>
+                Promise.race([
+                    promise,
+                    new Promise((_, reject) => setTimeout(() => reject(new Error(msg)), ms))
+                ]);
+
+            // 1. Upsert Car
+            console.log('1. Upserting car:', car.id);
+            await withTimeout(upsertCar(storedCar), 10000, "Car upsert timed out");
+            console.log('✅ Car upserted!');
+
+            // 2. Create Booking
+            console.log('2. Creating booking...');
+            const booking = await withTimeout(createSupabaseBooking(bookingPayload), 10000, "Booking creation timed out");
+            console.log('✅ Booking created:', booking?.id);
 
             // 3. Create the payment record
             console.log('Creating payment record for booking:', booking.id);
-            await createPayment({
+            await withTimeout(createPayment({
                 booking_id: booking.id,
                 user_id: user.uid,
                 amount: total,
@@ -136,16 +145,16 @@ export default function CheckoutScreen() {
                 payment_method: selectedPayment,
                 transaction_id: `txn_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
                 status: 'success'
-            });
+            }), 10000, "Payment creation timed out");
 
             setIsProcessing(false);
             setShowSuccessModal(true);
 
-            // Redirect to Bookings list after 2.5 seconds
+            // Redirect to Bookings list after 800ms
             setTimeout(() => {
                 setShowSuccessModal(false);
                 router.replace('/(tabs)/bookings');
-            }, 2500);
+            }, 800);
         } catch (error: any) {
             console.error('Booking failed:', error);
             setIsProcessing(false);

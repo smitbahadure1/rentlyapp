@@ -133,7 +133,7 @@ export default function CarDetailsScreen() {
             <View style={styles.bottomBar}>
                 <View style={styles.priceContainer}>
                     <Text style={styles.priceLabel}>Daily Price</Text>
-                    <Text style={styles.priceValue}>₹{car.price}<Text style={styles.priceUnit}>/day</Text></Text>
+                    <Text style={styles.priceValue}>{car.price}<Text style={styles.priceUnit}>/day</Text></Text>
                 </View>
                 <TouchableOpacity style={styles.bookButton} onPress={() => router.push(`/checkout/${id}`)}>
                     <Text style={styles.bookButtonText}>Book Now</Text>

@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { signUp } from '@/services/authService';
 import { upsertUser } from '@/services/supabaseService';
 
 export default function SignUpScreen() {
@@ -26,8 +27,7 @@ export default function SignUpScreen() {
         setIsLoading(true);
 
         try {
-            const userCredential = await createUserWithEmailAndPassword(auth, emailAddress, password);
-            const user = userCredential.user;
+            const user = await signUp(emailAddress, password);
 
             // Sync user to Backend
             await upsertUser({

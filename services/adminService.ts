@@ -36,14 +36,23 @@ export interface BookingWithDetails {
     };
 }
 
+import { signIn } from '@/services/authService';
+
 /**
- * Admin authentication - simple check for demo purposes
+ * Admin authentication
  */
 export async function adminSignIn(email: string, password: string): Promise<AdminUser | null> {
     try {
         if (email === 'justme13680@gmail.com' && password === 'Aditya1234') {
+            // Actually sign into Firebase to get read/write permissions for the database
+            const user = await signIn(email, password).catch(async (e) => {
+                // If the admin user doesn't exist yet, we silently create it to ensure the dashboard works gracefully
+                const { signUp } = await import('@/services/authService');
+                return await signUp(email, password);
+            });
+
             const adminUser: AdminUser = {
-                id: 'admin-001',
+                id: user.uid,
                 email: email,
                 full_name: 'Admin User',
                 last_login: new Date().toISOString()
@@ -64,7 +73,34 @@ export async function adminSignIn(email: string, password: string): Promise<Admi
  */
 export async function fetchAdminDashboardStats(): Promise<AdminDashboardStats> {
     try {
-        const carsSnapshot = await getDocs(collection(db, 'cars'));
+        let carsSnapshot = await getDocs(collection(db, 'cars'));
+
+        // First-time DB hydration: if database runs totally empty, populate it instantly
+        if (carsSnapshot.size === 0) {
+            logInfo('🛠️ Cars database is empty! Populating with default mock data...');
+            const { generateFallbackCars } = await import('./fallbackCars');
+            const { setDoc } = await import('firebase/firestore');
+            const newCars = generateFallbackCars(15);
+
+            // Add all mocked cars to firebase in parallel
+            await Promise.all(newCars.map(car =>
+                setDoc(doc(db, 'cars', car.id.toString()), {
+                    brand: car.brand || 'Unknown',
+                    model: car.model || 'Premium Model',
+                    image: car.image || '',
+                    price: Number(car.price) || 0,
+                    rating: Number(car.rating) || 4.5,
+                    fuel_type: car.fuelType || 'Petrol',
+                    transmission: car.transmission || 'Automatic',
+                    seats: Number(car.seats) || 5,
+                    status: 'available'
+                }, { merge: true })
+            ));
+
+            logInfo('✅ Successfully populated 15 fallback cars into Firebase!');
+            carsSnapshot = await getDocs(collection(db, 'cars')); // Reload snapshot
+        }
+
         const bookingsSnapshot = await getDocs(collection(db, 'bookings'));
 
         let available_cars = 0;
@@ -91,8 +127,9 @@ export async function fetchAdminDashboardStats(): Promise<AdminDashboardStats> {
             upcoming_bookings,
             total_revenue
         };
-    } catch (error) {
+    } catch (error: any) {
         logError('Error in fetchAdminDashboardStats:', error);
+        alert('Dashboard stats error: ' + (error?.message || JSON.stringify(error)));
         return {
             total_cars: 0,
             available_cars: 0,

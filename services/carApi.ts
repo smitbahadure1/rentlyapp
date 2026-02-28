@@ -189,9 +189,10 @@ export function formatBrandForRental(brand: Brand, modelName?: string): CarData 
     const fuelTypes = ['Petrol', 'Diesel', 'Electric', 'Hybrid'];
 
     const finalModelName = modelName || `${brand.name} Series`;
+    const salt = Math.random().toString(36).substring(7) + Date.now().toString(36);
 
     return {
-        id: `${brand.id}-${modelName || 'default'}`,
+        id: `${brand.id}-${modelName || 'default'}-${salt}`,
         brand: brand.name,
         model: finalModelName,
         image: getCarImageForBrand(brand.name, finalModelName),

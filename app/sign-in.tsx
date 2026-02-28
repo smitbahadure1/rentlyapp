@@ -10,6 +10,10 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { upsertUser } from '@/services/supabaseService';
 
+import { signIn } from '@/services/authService';
+
+// ...rest of the imports...
+
 export default function SignInScreen() {
     const router = useRouter();
 
@@ -20,8 +24,7 @@ export default function SignInScreen() {
     const onSignInPress = useCallback(async () => {
         setIsLoading(true);
         try {
-            const userCredential = await signInWithEmailAndPassword(auth, emailAddress, password);
-            const user = userCredential.user;
+            const user = await signIn(emailAddress, password);
 
             // Sync user to Backend (Firebase Firestore will be handled via services)
             await upsertUser({

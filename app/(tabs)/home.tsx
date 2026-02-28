@@ -34,7 +34,7 @@ export default function HomeScreen() {
             console.warn('Supabase cars fetch failed, using API only:', err);
             return [];
           }),
-          getPopularCars(80)
+          getPopularCars(15)
         ]);
 
         console.log(`📊 Loaded ${supabaseCars?.length || 0} cars from Supabase`);

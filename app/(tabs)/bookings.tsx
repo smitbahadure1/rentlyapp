@@ -8,9 +8,10 @@ import { useState, useEffect } from 'react';
 import { auth } from '@/lib/firebase';
 import { fetchUserBookings } from '@/services/supabaseService';
 
+import { getSession } from '@/services/authService';
+
 export default function BookingsScreen() {
     const router = useRouter();
-    const user = auth.currentUser;
     const [activeTab, setActiveTab] = useState('Active');
     const [bookings, setBookings] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -20,15 +21,18 @@ export default function BookingsScreen() {
 
     useEffect(() => {
         async function loadBookings() {
-            if (!user) {
-                console.log('⚠️ No user found, skipping booking fetch');
-                return;
-            }
             try {
-                console.log('👤 Current user ID:', user.uid);
+                const sessionUser = await getSession();
+                if (!sessionUser) {
+                    console.log('⚠️ No session found, skipping booking fetch');
+                    setIsLoading(false);
+                    return;
+                }
+
+                console.log('👤 Current user ID:', sessionUser.uid);
                 // Only show loader on initial mount or major refresh
                 if (refreshTrigger === 0) setIsLoading(true);
-                const data = await fetchUserBookings(user.uid);
+                const data = await fetchUserBookings(sessionUser.uid);
                 console.log('📋 Fetched bookings:', JSON.stringify(data, null, 2));
                 console.log('📋 Number of bookings:', data?.length || 0);
                 if (data && data.length > 0) {
@@ -49,7 +53,7 @@ export default function BookingsScreen() {
         // For now, we'll use a simple interval or rely on the checkout redirect
         const interval = setInterval(loadBookings, 10000); // Polling every 10s as a fallback
         return () => clearInterval(interval);
-    }, [user, refreshTrigger]);
+    }, [refreshTrigger]);
 
     const getStatusColor = (status: string) => {
         switch (status) {

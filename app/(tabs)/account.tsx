@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { auth } from '@/lib/firebase';
-import { signOut } from 'firebase/auth';
+import { signOut } from '@/services/authService';
 import { useState, useEffect } from 'react';
 import { fetchUserBookings } from '@/services/supabaseService';
 
@@ -39,7 +39,7 @@ export default function AccountScreen() {
     }, [user]);
 
     const handleLogout = async () => {
-        await signOut(auth);
+        await signOut();
         router.replace('/');
     };
 

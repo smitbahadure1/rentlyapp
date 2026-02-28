@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
@@ -52,6 +53,19 @@ export default function OnboardingScreen() {
 
     // Redirect if already signed in
     useEffect(() => {
+        // Fast instant check using local storage
+        const checkLocalSession = async () => {
+            try {
+                const session = await AsyncStorage.getItem('user_session');
+                if (session) {
+                    router.replace('/(tabs)/home');
+                }
+            } catch (e) {
+                // Ignore error, fallback to firebase listener
+            }
+        };
+        checkLocalSession();
+
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
                 router.replace('/(tabs)/home');
